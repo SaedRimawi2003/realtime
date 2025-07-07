@@ -1,0 +1,2087 @@
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001     PROCESSOR 16F877A
+2007   3731           00002     __CONFIG 0x3731
+                      00003 
+                      00004     INCLUDE "P16F877A.INC"
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F877A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00566         LIST
+                      00005 
+  00000001            00006 RS      EQU 1
+  00000002            00007 E       EQU 2
+  00000074            00008 Select  EQU 74
+  00000020            00009 Temp    EQU 0x20
+  00000021            00010 DelayCt EQU 0x21
+  00000022            00011 DigitValue EQU 0x22      ; Current digit value for editing
+  00000023            00012 Inactivity EQU 0x23
+  0000002A            00013 DigitPtr EQU 0x2A        ; Pointer to current digit variable
+                      00014 
+  0000002B            00015 ClickCount EQU 0x2B      ; 1 = single, 2 = double
+  0000002C            00016 Section   EQU 0x2C       ; 0: integer, 1: decimal
+  00000033            00017 DisplayState EQU 0x33    ; 0: Result, 1: Number 1, 2: Number 2
+                      00018 
+                      00019 ; Working variables for input (reused for both numbers)
+  00000024            00020 Digit1  EQU 0x24
+  00000025            00021 Digit2  EQU 0x25
+  00000026            00022 Digit3  EQU 0x26
+  00000027            00023 Digit4  EQU 0x27
+  00000028            00024 Digit5  EQU 0x28
+  00000029            00025 Digit6  EQU 0x29
+                      00026 
+  0000002D            00027 Dec1    EQU 0x2D
+  0000002E            00028 Dec2    EQU 0x2E
+  0000002F            00029 Dec3    EQU 0x2F
+  00000030            00030 Dec4    EQU 0x30
+  00000031            00031 Dec5    EQU 0x31
+  00000032            00032 Dec6    EQU 0x32
+                      00033 
+                      00034 ; Number 1 permanent storage (6 integer + 6 decimal)
+  00000034            00035 Num1_Digit1  EQU 0x34
+  00000035            00036 Num1_Digit2  EQU 0x35
+  00000036            00037 Num1_Digit3  EQU 0x36
+  00000037            00038 Num1_Digit4  EQU 0x37
+  00000038            00039 Num1_Digit5  EQU 0x38
+  00000039            00040 Num1_Digit6  EQU 0x39
+                      00041 
+  0000003A            00042 Num1_Dec1    EQU 0x3A
+  0000003B            00043 Num1_Dec2    EQU 0x3B
+  0000003C            00044 Num1_Dec3    EQU 0x3C
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  0000003D            00045 Num1_Dec4    EQU 0x3D
+  0000003E            00046 Num1_Dec5    EQU 0x3E
+  0000003F            00047 Num1_Dec6    EQU 0x3F
+                      00048 
+                      00049 ; Number 2 storage (6 integer + 6 decimal)
+  00000040            00050 Num2_Digit1  EQU 0x40
+  00000041            00051 Num2_Digit2  EQU 0x41
+  00000042            00052 Num2_Digit3  EQU 0x42
+  00000043            00053 Num2_Digit4  EQU 0x43
+  00000044            00054 Num2_Digit5  EQU 0x44
+  00000045            00055 Num2_Digit6  EQU 0x45
+                      00056 
+  00000046            00057 Num2_Dec1    EQU 0x46
+  00000047            00058 Num2_Dec2    EQU 0x47
+  00000048            00059 Num2_Dec3    EQU 0x48
+  00000049            00060 Num2_Dec4    EQU 0x49
+  0000004A            00061 Num2_Dec5    EQU 0x4A
+  0000004B            00062 Num2_Dec6    EQU 0x4B
+                      00063 
+                      00064     ORG 0
+0000   0000           00065     NOP
+                      00066 
+                      00067     ;--- Set TRISD and TRISB using BANKSEL (no Message[302]) ---
+0001   1683 1303      00068     BANKSEL TRISD
+0003   3000           00069     MOVLW 0x00
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0088           00070     MOVWF TRISD        ; Set PORTD as output
+                      00071 
+0005   1683 1303      00072     BANKSEL TRISB
+0007   3001           00073     MOVLW 0x01         ; Set RB0 as input, others output
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0008   0086           00074     MOVWF TRISB
+                      00075 
+0009   1283 1303      00076     BANKSEL PORTD      ; Return to bank 0
+                      00077 
+                      00078     ; Init LCD
+000B   2???           00079     CALL inid
+                      00080 
+                      00081     ; Blink welcome as before
+000C   3003           00082     MOVLW D'3'
+000D   00A0           00083     MOVWF Temp
+000E                  00084 blink_loop
+000E   3080           00085     MOVLW 0x80
+000F   10F4           00086     BCF Select, RS
+0010   2???           00087     CALL send
+0011   2???           00088     CALL print_welcome
+                      00089 
+0012   30C0           00090     MOVLW 0xC0
+0013   10F4           00091     BCF Select, RS
+0014   2???           00092     CALL send
+0015   2???           00093     CALL print_division
+                      00094 
+0016   2???           00095     CALL delay_250ms
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0017   3001           00096     MOVLW 0x01
+0018   10F4           00097     BCF Select, RS
+0019   2???           00098     CALL send
+001A   2???           00099     CALL delay_250ms
+001B   0BA0           00100     DECFSZ Temp, f
+001C   2???           00101     GOTO blink_loop
+                      00102 
+001D   3001           00103     MOVLW 0x01
+001E   10F4           00104     BCF Select, RS
+001F   2???           00105     CALL send
+0020   2???           00106     CALL delay_1s
+                      00107 
+                      00108 ; --------- Main Program Entry Point ---------
+0021                  00109 main_program_start:
+                      00110     ; Clear all stored numbers at the beginning
+0021   2???           00111     CALL clear_all_numbers
+                      00112 
+                      00113 ; --------- Number 1 Entry ---------
+0022                  00114 start_number1:
+                      00115     ; Show Number 1
+0022   3001           00116     MOVLW 0x01
+0023   10F4           00117     BCF Select, RS
+0024   2???           00118     CALL send
+0025   3080           00119     MOVLW 0x80
+0026   10F4           00120     BCF Select, RS
+0027   2???           00121     CALL send
+0028   2???           00122     CALL print_number1
+                      00123 
+                      00124     ; --- Initialize all digits to zero ---
+0029   01A4           00125     CLRF Digit1
+002A   01A5           00126     CLRF Digit2
+002B   01A6           00127     CLRF Digit3
+002C   01A7           00128     CLRF Digit4
+002D   01A8           00129     CLRF Digit5
+002E   01A9           00130     CLRF Digit6
+002F   01AD           00131     CLRF Dec1
+0030   01AE           00132     CLRF Dec2
+0031   01AF           00133     CLRF Dec3
+0032   01B0           00134     CLRF Dec4
+0033   01B1           00135     CLRF Dec5
+0034   01B2           00136     CLRF Dec6
+                      00137 
+                      00138     ; --- Initial LCD display: 000000.000000 ---
+0035   2???           00139     CALL display_all_digits
+                      00140 
+                      00141     ; --- Multi-digit entry: integer then decimal ---
+0036   01AC           00142     CLRF Section        ; 0 = integer, 1 = decimal
+                      00143 
+0037                  00144 start_entry1:
+0037   3024           00145     MOVLW Digit1
+0038   00AA           00146     MOVWF DigitPtr      ; Start with integer part
+                      00147 
+0039   3006           00148     MOVLW 6
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+003A   00A0           00149     MOVWF Temp          ; 6 digits to enter
+                      00150 
+003B   01A2           00151     CLRF DigitValue     ; Start with 0 for first digit
+                      00152 
+                      00153     ; === First integer digit special logic ===
+003C                  00154 first_digit_entry1:
+003C   2???           00155     CALL display_all_digits_with_cursor
+                      00156 
+003D   01A3           00157     CLRF Inactivity
+                      00158 
+003E                  00159 first_digit_input_loop1:
+003E   2???           00160     CALL wait_click_or_timeout
+003F   082B           00161     MOVF ClickCount, W
+0040   1903           00162     BTFSC STATUS, Z
+0041   2???           00163     GOTO first_digit_inactivity1
+0042   032B           00164     DECF ClickCount, W
+0043   1903           00165     BTFSC STATUS, Z
+0044   2???           00166     GOTO first_digit_handle_press1
+0045   082B           00167     MOVF ClickCount, W
+0046   3C02           00168     SUBLW 2
+0047   1903           00169     BTFSC STATUS, Z
+0048   2???           00170     GOTO start_decimal_section1
+                      00171 
+0049                  00172 first_digit_handle_press1:
+0049                  00173 wait_release1
+0049   1C06           00174     BTFSS PORTB, 0
+004A   2???           00175     GOTO wait_release1
+004B   3014           00176     MOVLW D'20'
+004C   2???           00177     CALL xms
+                      00178 
+004D   0AA2           00179     INCF DigitValue, F
+004E   0822           00180     MOVF DigitValue, W
+004F   3C0A           00181     SUBLW D'10'
+0050   1D03           00182     BTFSS STATUS, Z
+0051   2???           00183     GOTO first_digit_entry1
+0052   01A2           00184     CLRF DigitValue
+0053   2???           00185     GOTO first_digit_entry1
+                      00186 
+0054                  00187 first_digit_inactivity1:
+0054   0AA3           00188     INCF Inactivity, F
+0055   0823           00189     MOVF Inactivity, W
+0056   3C04           00190     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+0057   1D03           00191     BTFSS STATUS, Z
+0058   2???           00192     GOTO first_digit_input_loop1
+                      00193 
+                      00194     ; Inactivity: fill all digits with first digit value
+0059   0822           00195     MOVF DigitValue, W
+005A   00A4           00196     MOVWF Digit1
+005B   00A5           00197     MOVWF Digit2
+005C   00A6           00198     MOVWF Digit3
+005D   00A7           00199     MOVWF Digit4
+005E   00A8           00200     MOVWF Digit5
+005F   00A9           00201     MOVWF Digit6
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00202 
+                      00203     ; Now move to second digit for further editing
+0060   3025           00204     MOVLW Digit2
+0061   00AA           00205     MOVWF DigitPtr
+0062   3005           00206     MOVLW 5
+0063   00A0           00207     MOVWF Temp          ; 5 digits left
+                      00208 
+0064   2???           00209     GOTO edit_next_digit1
+                      00210 
+                      00211 ; === Remainder of integer digits: normal per-digit editing ===
+0065                  00212 edit_next_digit1:
+0065   082A           00213     MOVF DigitPtr, W
+0066   0084           00214     MOVWF FSR
+0067   0800           00215     MOVF INDF, W
+0068   00A2           00216     MOVWF DigitValue
+                      00217 
+0069                  00218 edit_this_digit1:
+0069   2???           00219     CALL display_all_digits_with_cursor
+                      00220 
+006A   01A3           00221     CLRF Inactivity
+                      00222 
+006B                  00223 edit_digit_input_loop1:
+006B   2???           00224     CALL wait_click_or_timeout
+006C   082B           00225     MOVF ClickCount, W
+006D   1903           00226     BTFSC STATUS, Z
+006E   2???           00227     GOTO edit_digit_inactivity1
+006F   032B           00228     DECF ClickCount, W
+0070   1903           00229     BTFSC STATUS, Z
+0071   2???           00230     GOTO edit_digit_handle_press1
+0072   082B           00231     MOVF ClickCount, W
+0073   3C02           00232     SUBLW 2
+0074   1903           00233     BTFSC STATUS, Z
+0075   2???           00234     GOTO start_decimal_section1
+                      00235 
+0076                  00236 edit_digit_handle_press1:
+0076                  00237 wait_release2
+0076   1C06           00238     BTFSS PORTB, 0
+0077   2???           00239     GOTO wait_release2
+0078   3014           00240     MOVLW D'20'
+0079   2???           00241     CALL xms
+                      00242 
+007A   0AA2           00243     INCF DigitValue, F
+007B   0822           00244     MOVF DigitValue, W
+007C   3C0A           00245     SUBLW D'10'
+007D   1D03           00246     BTFSS STATUS, Z
+007E   2???           00247     GOTO edit_this_digit1
+007F   01A2           00248     CLRF DigitValue
+0080   2???           00249     GOTO edit_this_digit1
+                      00250 
+0081                  00251 edit_digit_inactivity1:
+0081   0AA3           00252     INCF Inactivity, F
+0082   0823           00253     MOVF Inactivity, W
+0083   3C04           00254     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0084   1D03           00255     BTFSS STATUS, Z
+0085   2???           00256     GOTO edit_digit_input_loop1
+                      00257 
+0086   082A           00258     MOVF DigitPtr, W
+0087   0084           00259     MOVWF FSR
+0088   0822           00260     MOVF DigitValue, W
+0089   0080           00261     MOVWF INDF
+                      00262 
+008A   0AAA           00263     INCF DigitPtr, F
+008B   0BA0           00264     DECFSZ Temp, f
+008C   2???           00265     GOTO edit_next_digit1
+                      00266 
+                      00267     ; All integer digits entered, start decimal part
+008D   2???           00268     GOTO start_decimal_section1
+                      00269 
+                      00270 ; === Decimal part: same logic ===
+008E                  00271 start_decimal_section1:
+008E   3001           00272     MOVLW 1
+008F   00AC           00273     MOVWF Section
+0090   302D           00274     MOVLW Dec1
+0091   00AA           00275     MOVWF DigitPtr      ; Start decimal digits
+                      00276 
+0092   3006           00277     MOVLW 6
+0093   00A0           00278     MOVWF Temp          ; 6 decimal digits
+                      00279 
+0094   01A2           00280     CLRF DigitValue     ; Start with 0 for first decimal
+                      00281 
+                      00282     ; Special logic for first decimal digit (fill all on inactivity)
+0095                  00283 first_decimal_digit_entry1:
+0095   2???           00284     CALL display_all_digits_with_cursor
+                      00285 
+0096   01A3           00286     CLRF Inactivity
+                      00287 
+0097                  00288 first_dec_digit_input_loop1:
+0097   2???           00289     CALL wait_click_or_timeout
+0098   082B           00290     MOVF ClickCount, W
+0099   1903           00291     BTFSC STATUS, Z
+009A   2???           00292     GOTO first_dec_digit_inactivity1
+009B   032B           00293     DECF ClickCount, W
+009C   1903           00294     BTFSC STATUS, Z
+009D   2???           00295     GOTO first_dec_digit_handle_press1
+009E   082B           00296     MOVF ClickCount, W
+009F   3C02           00297     SUBLW 2
+00A0   1903           00298     BTFSC STATUS, Z
+00A1   2???           00299     GOTO finish_number1
+                      00300 
+00A2                  00301 first_dec_digit_handle_press1:
+00A2                  00302 wait_release3
+00A2   1C06           00303     BTFSS PORTB, 0
+00A3   2???           00304     GOTO wait_release3
+00A4   3014           00305     MOVLW D'20'
+00A5   2???           00306     CALL xms
+                      00307 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00A6   0AA2           00308     INCF DigitValue, F
+00A7   0822           00309     MOVF DigitValue, W
+00A8   3C0A           00310     SUBLW D'10'
+00A9   1D03           00311     BTFSS STATUS, Z
+00AA   2???           00312     GOTO first_decimal_digit_entry1
+00AB   01A2           00313     CLRF DigitValue
+00AC   2???           00314     GOTO first_decimal_digit_entry1
+                      00315 
+00AD                  00316 first_dec_digit_inactivity1:
+00AD   0AA3           00317     INCF Inactivity, F
+00AE   0823           00318     MOVF Inactivity, W
+00AF   3C04           00319     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+00B0   1D03           00320     BTFSS STATUS, Z
+00B1   2???           00321     GOTO first_dec_digit_input_loop1
+                      00322 
+                      00323     ; Inactivity: fill all decimal digits with first decimal value
+00B2   0822           00324     MOVF DigitValue, W
+00B3   00AD           00325     MOVWF Dec1
+00B4   00AE           00326     MOVWF Dec2
+00B5   00AF           00327     MOVWF Dec3
+00B6   00B0           00328     MOVWF Dec4
+00B7   00B1           00329     MOVWF Dec5
+00B8   00B2           00330     MOVWF Dec6
+                      00331 
+                      00332     ; Now move to second decimal digit for further editing
+00B9   302E           00333     MOVLW Dec2
+00BA   00AA           00334     MOVWF DigitPtr
+00BB   3005           00335     MOVLW 5
+00BC   00A0           00336     MOVWF Temp          ; 5 decimal digits left
+                      00337 
+00BD   2???           00338     GOTO edit_next_dec_digit1
+                      00339 
+                      00340 ; === Remainder of decimals: normal per-digit editing ===
+00BE                  00341 edit_next_dec_digit1:
+00BE   082A           00342     MOVF DigitPtr, W
+00BF   0084           00343     MOVWF FSR
+00C0   0800           00344     MOVF INDF, W
+00C1   00A2           00345     MOVWF DigitValue
+                      00346 
+00C2                  00347 edit_this_dec_digit1:
+00C2   2???           00348     CALL display_all_digits_with_cursor
+                      00349 
+00C3   01A3           00350     CLRF Inactivity
+                      00351 
+00C4                  00352 edit_dec_digit_input_loop1:
+00C4   2???           00353     CALL wait_click_or_timeout
+00C5   082B           00354     MOVF ClickCount, W
+00C6   1903           00355     BTFSC STATUS, Z
+00C7   2???           00356     GOTO edit_dec_digit_inactivity1
+00C8   032B           00357     DECF ClickCount, W
+00C9   1903           00358     BTFSC STATUS, Z
+00CA   2???           00359     GOTO edit_dec_digit_handle_press1
+00CB   082B           00360     MOVF ClickCount, W
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00CC   3C02           00361     SUBLW 2
+00CD   1903           00362     BTFSC STATUS, Z
+00CE   2???           00363     GOTO finish_number1
+                      00364 
+00CF                  00365 edit_dec_digit_handle_press1:
+00CF                  00366 wait_release4
+00CF   1C06           00367     BTFSS PORTB, 0
+00D0   2???           00368     GOTO wait_release4
+00D1   3014           00369     MOVLW D'20'
+00D2   2???           00370     CALL xms
+                      00371 
+00D3   0AA2           00372     INCF DigitValue, F
+00D4   0822           00373     MOVF DigitValue, W
+00D5   3C0A           00374     SUBLW D'10'
+00D6   1D03           00375     BTFSS STATUS, Z
+00D7   2???           00376     GOTO edit_this_dec_digit1
+00D8   01A2           00377     CLRF DigitValue
+00D9   2???           00378     GOTO edit_this_dec_digit1
+                      00379 
+00DA                  00380 edit_dec_digit_inactivity1:
+00DA   0AA3           00381     INCF Inactivity, F
+00DB   0823           00382     MOVF Inactivity, W
+00DC   3C04           00383     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+00DD   1D03           00384     BTFSS STATUS, Z
+00DE   2???           00385     GOTO edit_dec_digit_input_loop1
+                      00386 
+00DF   082A           00387     MOVF DigitPtr, W
+00E0   0084           00388     MOVWF FSR
+00E1   0822           00389     MOVF DigitValue, W
+00E2   0080           00390     MOVWF INDF
+                      00391 
+00E3   0AAA           00392     INCF DigitPtr, F
+00E4   0BA0           00393     DECFSZ Temp, f
+00E5   2???           00394     GOTO edit_next_dec_digit1
+                      00395 
+00E6                  00396 finish_number1:
+00E6   082A           00397     MOVF DigitPtr, W
+00E7   0084           00398     MOVWF FSR
+00E8   0822           00399     MOVF DigitValue, W
+00E9   0080           00400     MOVWF INDF
+                      00401 
+                      00402     ; Save Number 1 to permanent storage before proceeding to Number 2
+00EA   2???           00403     CALL save_number1
+                      00404 
+00EB   2???           00405     CALL display_all_digits
+00EC   2???           00406     CALL delay_1s
+                      00407 
+                      00408 ; --------- Number 2 Entry ---------
+00ED                  00409 start_number2:
+                      00410     ; Clear LCD
+00ED   3001           00411     MOVLW 0x01
+00EE   10F4           00412     BCF Select, RS
+00EF   2???           00413     CALL send
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00414 
+                      00415     ; Print "Number 2" on line 1
+00F0   3080           00416     MOVLW 0x80
+00F1   10F4           00417     BCF Select, RS
+00F2   2???           00418     CALL send
+00F3   2???           00419     CALL print_number2
+                      00420 
+                      00421     ; Clear working digits for number 2 entry
+00F4   01A4           00422     CLRF Digit1
+00F5   01A5           00423     CLRF Digit2
+00F6   01A6           00424     CLRF Digit3
+00F7   01A7           00425     CLRF Digit4
+00F8   01A8           00426     CLRF Digit5
+00F9   01A9           00427     CLRF Digit6
+00FA   01AD           00428     CLRF Dec1
+00FB   01AE           00429     CLRF Dec2
+00FC   01AF           00430     CLRF Dec3
+00FD   01B0           00431     CLRF Dec4
+00FE   01B1           00432     CLRF Dec5
+00FF   01B2           00433     CLRF Dec6
+                      00434 
+                      00435     ; Print 000000.000000 for Number 2
+0100   2???           00436     CALL display_all_digits
+                      00437 
+                      00438     ; --- Multi-digit entry for number 2 (identical to number 1 logic) ---
+0101   01AC           00439     CLRF Section        ; 0 = integer, 1 = decimal
+                      00440 
+0102                  00441 start_entry2:
+0102   3024           00442     MOVLW Digit1
+0103   00AA           00443     MOVWF DigitPtr      ; Start with integer part
+                      00444 
+0104   3006           00445     MOVLW 6
+0105   00A0           00446     MOVWF Temp          ; 6 digits to enter
+                      00447 
+0106   01A2           00448     CLRF DigitValue     ; Start with 0 for first digit
+                      00449 
+0107                  00450 first_digit_entry2:
+0107   2???           00451     CALL display_all_digits_with_cursor
+                      00452 
+0108   01A3           00453     CLRF Inactivity
+                      00454 
+0109                  00455 first_digit_input_loop2:
+0109   2???           00456     CALL wait_click_or_timeout
+010A   082B           00457     MOVF ClickCount, W
+010B   1903           00458     BTFSC STATUS, Z
+010C   2???           00459     GOTO first_digit_inactivity2
+010D   032B           00460     DECF ClickCount, W
+010E   1903           00461     BTFSC STATUS, Z
+010F   2???           00462     GOTO first_digit_handle_press2
+0110   082B           00463     MOVF ClickCount, W
+0111   3C02           00464     SUBLW 2
+0112   1903           00465     BTFSC STATUS, Z
+0113   2???           00466     GOTO start_decimal_section2
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00467 
+0114                  00468 first_digit_handle_press2:
+0114                  00469 wait_release12
+0114   1C06           00470     BTFSS PORTB, 0
+0115   2???           00471     GOTO wait_release12
+0116   3014           00472     MOVLW D'20'
+0117   2???           00473     CALL xms
+                      00474 
+0118   0AA2           00475     INCF DigitValue, F
+0119   0822           00476     MOVF DigitValue, W
+011A   3C0A           00477     SUBLW D'10'
+011B   1D03           00478     BTFSS STATUS, Z
+011C   2???           00479     GOTO first_digit_entry2
+011D   01A2           00480     CLRF DigitValue
+011E   2???           00481     GOTO first_digit_entry2
+                      00482 
+011F                  00483 first_digit_inactivity2:
+011F   0AA3           00484     INCF Inactivity, F
+0120   0823           00485     MOVF Inactivity, W
+0121   3C04           00486     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+0122   1D03           00487     BTFSS STATUS, Z
+0123   2???           00488     GOTO first_digit_input_loop2
+                      00489 
+0124   0822           00490     MOVF DigitValue, W
+0125   00A4           00491     MOVWF Digit1
+0126   00A5           00492     MOVWF Digit2
+0127   00A6           00493     MOVWF Digit3
+0128   00A7           00494     MOVWF Digit4
+0129   00A8           00495     MOVWF Digit5
+012A   00A9           00496     MOVWF Digit6
+                      00497 
+012B   3025           00498     MOVLW Digit2
+012C   00AA           00499     MOVWF DigitPtr
+012D   3005           00500     MOVLW 5
+012E   00A0           00501     MOVWF Temp
+                      00502 
+012F   2???           00503     GOTO edit_next_digit2
+                      00504 
+0130                  00505 edit_next_digit2:
+0130   082A           00506     MOVF DigitPtr, W
+0131   0084           00507     MOVWF FSR
+0132   0800           00508     MOVF INDF, W
+0133   00A2           00509     MOVWF DigitValue
+                      00510 
+0134                  00511 edit_this_digit2:
+0134   2???           00512     CALL display_all_digits_with_cursor
+                      00513 
+0135   01A3           00514     CLRF Inactivity
+                      00515 
+0136                  00516 edit_digit_input_loop2:
+0136   2???           00517     CALL wait_click_or_timeout
+0137   082B           00518     MOVF ClickCount, W
+0138   1903           00519     BTFSC STATUS, Z
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0139   2???           00520     GOTO edit_digit_inactivity2
+013A   032B           00521     DECF ClickCount, W
+013B   1903           00522     BTFSC STATUS, Z
+013C   2???           00523     GOTO edit_digit_handle_press2
+013D   082B           00524     MOVF ClickCount, W
+013E   3C02           00525     SUBLW 2
+013F   1903           00526     BTFSC STATUS, Z
+0140   2???           00527     GOTO start_decimal_section2
+                      00528 
+0141                  00529 edit_digit_handle_press2:
+0141                  00530 wait_release22
+0141   1C06           00531     BTFSS PORTB, 0
+0142   2???           00532     GOTO wait_release22
+0143   3014           00533     MOVLW D'20'
+0144   2???           00534     CALL xms
+                      00535 
+0145   0AA2           00536     INCF DigitValue, F
+0146   0822           00537     MOVF DigitValue, W
+0147   3C0A           00538     SUBLW D'10'
+0148   1D03           00539     BTFSS STATUS, Z
+0149   2???           00540     GOTO edit_this_digit2
+014A   01A2           00541     CLRF DigitValue
+014B   2???           00542     GOTO edit_this_digit2
+                      00543 
+014C                  00544 edit_digit_inactivity2:
+014C   0AA3           00545     INCF Inactivity, F
+014D   0823           00546     MOVF Inactivity, W
+014E   3C04           00547     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+014F   1D03           00548     BTFSS STATUS, Z
+0150   2???           00549     GOTO edit_digit_input_loop2
+                      00550 
+0151   082A           00551     MOVF DigitPtr, W
+0152   0084           00552     MOVWF FSR
+0153   0822           00553     MOVF DigitValue, W
+0154   0080           00554     MOVWF INDF
+                      00555 
+0155   0AAA           00556     INCF DigitPtr, F
+0156   0BA0           00557     DECFSZ Temp, f
+0157   2???           00558     GOTO edit_next_digit2
+                      00559 
+0158   2???           00560     GOTO start_decimal_section2
+                      00561 
+0159                  00562 start_decimal_section2:
+0159   3001           00563     MOVLW 1
+015A   00AC           00564     MOVWF Section
+015B   302D           00565     MOVLW Dec1
+015C   00AA           00566     MOVWF DigitPtr
+                      00567 
+015D   3006           00568     MOVLW 6
+015E   00A0           00569     MOVWF Temp
+                      00570 
+015F   01A2           00571     CLRF DigitValue
+                      00572 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0160                  00573 first_decimal_digit_entry2:
+0160   2???           00574     CALL display_all_digits_with_cursor
+                      00575 
+0161   01A3           00576     CLRF Inactivity
+                      00577 
+0162                  00578 first_dec_digit_input_loop2:
+0162   2???           00579     CALL wait_click_or_timeout
+0163   082B           00580     MOVF ClickCount, W
+0164   1903           00581     BTFSC STATUS, Z
+0165   2???           00582     GOTO first_dec_digit_inactivity2
+0166   032B           00583     DECF ClickCount, W
+0167   1903           00584     BTFSC STATUS, Z
+0168   2???           00585     GOTO first_dec_digit_handle_press2
+0169   082B           00586     MOVF ClickCount, W
+016A   3C02           00587     SUBLW 2
+016B   1903           00588     BTFSC STATUS, Z
+016C   2???           00589     GOTO finish_number2
+                      00590 
+016D                  00591 first_dec_digit_handle_press2:
+016D                  00592 wait_release32
+016D   1C06           00593     BTFSS PORTB, 0
+016E   2???           00594     GOTO wait_release32
+016F   3014           00595     MOVLW D'20'
+0170   2???           00596     CALL xms
+                      00597 
+0171   0AA2           00598     INCF DigitValue, F
+0172   0822           00599     MOVF DigitValue, W
+0173   3C0A           00600     SUBLW D'10'
+0174   1D03           00601     BTFSS STATUS, Z
+0175   2???           00602     GOTO first_decimal_digit_entry2
+0176   01A2           00603     CLRF DigitValue
+0177   2???           00604     GOTO first_decimal_digit_entry2
+                      00605 
+0178                  00606 first_dec_digit_inactivity2:
+0178   0AA3           00607     INCF Inactivity, F
+0179   0823           00608     MOVF Inactivity, W
+017A   3C04           00609     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+017B   1D03           00610     BTFSS STATUS, Z
+017C   2???           00611     GOTO first_dec_digit_input_loop2
+                      00612 
+017D   0822           00613     MOVF DigitValue, W
+017E   00AD           00614     MOVWF Dec1
+017F   00AE           00615     MOVWF Dec2
+0180   00AF           00616     MOVWF Dec3
+0181   00B0           00617     MOVWF Dec4
+0182   00B1           00618     MOVWF Dec5
+0183   00B2           00619     MOVWF Dec6
+                      00620 
+0184   302E           00621     MOVLW Dec2
+0185   00AA           00622     MOVWF DigitPtr
+0186   3005           00623     MOVLW 5
+0187   00A0           00624     MOVWF Temp
+                      00625 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0188   2???           00626     GOTO edit_next_dec_digit2
+                      00627 
+0189                  00628 edit_next_dec_digit2:
+0189   082A           00629     MOVF DigitPtr, W
+018A   0084           00630     MOVWF FSR
+018B   0800           00631     MOVF INDF, W
+018C   00A2           00632     MOVWF DigitValue
+                      00633 
+018D                  00634 edit_this_dec_digit2:
+018D   2???           00635     CALL display_all_digits_with_cursor
+                      00636 
+018E   01A3           00637     CLRF Inactivity
+                      00638 
+018F                  00639 edit_dec_digit_input_loop2:
+018F   2???           00640     CALL wait_click_or_timeout
+0190   082B           00641     MOVF ClickCount, W
+0191   1903           00642     BTFSC STATUS, Z
+0192   2???           00643     GOTO edit_dec_digit_inactivity2
+0193   032B           00644     DECF ClickCount, W
+0194   1903           00645     BTFSC STATUS, Z
+0195   2???           00646     GOTO edit_dec_digit_handle_press2
+0196   082B           00647     MOVF ClickCount, W
+0197   3C02           00648     SUBLW 2
+0198   1903           00649     BTFSC STATUS, Z
+0199   2???           00650     GOTO finish_number2
+                      00651 
+019A                  00652 edit_dec_digit_handle_press2:
+019A                  00653 wait_release42
+019A   1C06           00654     BTFSS PORTB, 0
+019B   2???           00655     GOTO wait_release42
+019C   3014           00656     MOVLW D'20'
+019D   2???           00657     CALL xms
+                      00658 
+019E   0AA2           00659     INCF DigitValue, F
+019F   0822           00660     MOVF DigitValue, W
+01A0   3C0A           00661     SUBLW D'10'
+01A1   1D03           00662     BTFSS STATUS, Z
+01A2   2???           00663     GOTO edit_this_dec_digit2
+01A3   01A2           00664     CLRF DigitValue
+01A4   2???           00665     GOTO edit_this_dec_digit2
+                      00666 
+01A5                  00667 edit_dec_digit_inactivity2:
+01A5   0AA3           00668     INCF Inactivity, F
+01A6   0823           00669     MOVF Inactivity, W
+01A7   3C04           00670     SUBLW D'4'              ; 4*250ms = 1 second (changed from 12 = 3 seconds)
+01A8   1D03           00671     BTFSS STATUS, Z
+01A9   2???           00672     GOTO edit_dec_digit_input_loop2
+                      00673 
+01AA   082A           00674     MOVF DigitPtr, W
+01AB   0084           00675     MOVWF FSR
+01AC   0822           00676     MOVF DigitValue, W
+01AD   0080           00677     MOVWF INDF
+                      00678 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01AE   0AAA           00679     INCF DigitPtr, F
+01AF   0BA0           00680     DECFSZ Temp, f
+01B0   2???           00681     GOTO edit_next_dec_digit2
+                      00682 
+01B1                  00683 finish_number2:
+01B1   082A           00684     MOVF DigitPtr, W
+01B2   0084           00685     MOVWF FSR
+01B3   0822           00686     MOVF DigitValue, W
+01B4   0080           00687     MOVWF INDF
+                      00688 
+                      00689     ; Save Number 2 to permanent storage
+01B5   2???           00690     CALL save_number2
+                      00691 
+01B6   2???           00692     CALL display_all_digits
+01B7   2???           00693     CALL delay_1s
+                      00694 
+                      00695     ; *** KEY CHANGE: Immediately show Result first, then start cycling ***
+                      00696     ; Start display cycling mode with Result (DisplayState = 0)
+01B8   01B3           00697     CLRF DisplayState    ; Start with Result (0)
+01B9   2???           00698     GOTO display_cycle_mode
+                      00699 
+                      00700 ;--------------------------------------------------------
+                      00701 ; Clear all stored numbers (Number 1 and Number 2)
+01BA                  00702 clear_all_numbers:
+                      00703     ; Clear Number 1 storage
+01BA   01B4           00704     CLRF Num1_Digit1
+01BB   01B5           00705     CLRF Num1_Digit2
+01BC   01B6           00706     CLRF Num1_Digit3
+01BD   01B7           00707     CLRF Num1_Digit4
+01BE   01B8           00708     CLRF Num1_Digit5
+01BF   01B9           00709     CLRF Num1_Digit6
+01C0   01BA           00710     CLRF Num1_Dec1
+01C1   01BB           00711     CLRF Num1_Dec2
+01C2   01BC           00712     CLRF Num1_Dec3
+01C3   01BD           00713     CLRF Num1_Dec4
+01C4   01BE           00714     CLRF Num1_Dec5
+01C5   01BF           00715     CLRF Num1_Dec6
+                      00716     
+                      00717     ; Clear Number 2 storage
+01C6   01C0           00718     CLRF Num2_Digit1
+01C7   01C1           00719     CLRF Num2_Digit2
+01C8   01C2           00720     CLRF Num2_Digit3
+01C9   01C3           00721     CLRF Num2_Digit4
+01CA   01C4           00722     CLRF Num2_Digit5
+01CB   01C5           00723     CLRF Num2_Digit6
+01CC   01C6           00724     CLRF Num2_Dec1
+01CD   01C7           00725     CLRF Num2_Dec2
+01CE   01C8           00726     CLRF Num2_Dec3
+01CF   01C9           00727     CLRF Num2_Dec4
+01D0   01CA           00728     CLRF Num2_Dec5
+01D1   01CB           00729     CLRF Num2_Dec6
+01D2   0008           00730     RETURN
+                      00731 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00732 ;--------------------------------------------------------
+                      00733 ; Save Number 1 from working storage (Digit1..Digit6, Dec1..Dec6) to permanent storage
+01D3                  00734 save_number1:
+01D3   0824           00735     MOVF Digit1, W
+01D4   00B4           00736     MOVWF Num1_Digit1
+01D5   0825           00737     MOVF Digit2, W
+01D6   00B5           00738     MOVWF Num1_Digit2
+01D7   0826           00739     MOVF Digit3, W
+01D8   00B6           00740     MOVWF Num1_Digit3
+01D9   0827           00741     MOVF Digit4, W
+01DA   00B7           00742     MOVWF Num1_Digit4
+01DB   0828           00743     MOVF Digit5, W
+01DC   00B8           00744     MOVWF Num1_Digit5
+01DD   0829           00745     MOVF Digit6, W
+01DE   00B9           00746     MOVWF Num1_Digit6
+                      00747     
+01DF   082D           00748     MOVF Dec1, W
+01E0   00BA           00749     MOVWF Num1_Dec1
+01E1   082E           00750     MOVF Dec2, W
+01E2   00BB           00751     MOVWF Num1_Dec2
+01E3   082F           00752     MOVF Dec3, W
+01E4   00BC           00753     MOVWF Num1_Dec3
+01E5   0830           00754     MOVF Dec4, W
+01E6   00BD           00755     MOVWF Num1_Dec4
+01E7   0831           00756     MOVF Dec5, W
+01E8   00BE           00757     MOVWF Num1_Dec5
+01E9   0832           00758     MOVF Dec6, W
+01EA   00BF           00759     MOVWF Num1_Dec6
+01EB   0008           00760     RETURN
+                      00761 
+                      00762 ;--------------------------------------------------------
+                      00763 ; Save Number 2 from working storage (Digit1..Digit6, Dec1..Dec6) to permanent storage
+01EC                  00764 save_number2:
+01EC   0824           00765     MOVF Digit1, W
+01ED   00C0           00766     MOVWF Num2_Digit1
+01EE   0825           00767     MOVF Digit2, W
+01EF   00C1           00768     MOVWF Num2_Digit2
+01F0   0826           00769     MOVF Digit3, W
+01F1   00C2           00770     MOVWF Num2_Digit3
+01F2   0827           00771     MOVF Digit4, W
+01F3   00C3           00772     MOVWF Num2_Digit4
+01F4   0828           00773     MOVF Digit5, W
+01F5   00C4           00774     MOVWF Num2_Digit5
+01F6   0829           00775     MOVF Digit6, W
+01F7   00C5           00776     MOVWF Num2_Digit6
+                      00777     
+01F8   082D           00778     MOVF Dec1, W
+01F9   00C6           00779     MOVWF Num2_Dec1
+01FA   082E           00780     MOVF Dec2, W
+01FB   00C7           00781     MOVWF Num2_Dec2
+01FC   082F           00782     MOVF Dec3, W
+01FD   00C8           00783     MOVWF Num2_Dec3
+01FE   0830           00784     MOVF Dec4, W
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01FF   00C9           00785     MOVWF Num2_Dec4
+0200   0831           00786     MOVF Dec5, W
+0201   00CA           00787     MOVWF Num2_Dec5
+0202   0832           00788     MOVF Dec6, W
+0203   00CB           00789     MOVWF Num2_Dec6
+0204   0008           00790     RETURN
+                      00791 
+                      00792 ;--------------------------------------------------------
+                      00793 ; Display cycling mode: Result ? Number 1 ? Number 2 ? Result...
+0205                  00794 display_cycle_mode:
+                      00795     ; Display current state
+0205   2???           00796     CALL display_current_state
+                      00797     
+                      00798     ; Wait for button press
+0206                  00799 cycle_wait_input:
+0206   2???           00800     CALL wait_click_or_timeout
+0207   082B           00801     MOVF ClickCount, W
+0208   1903           00802     BTFSC STATUS, Z
+0209   2???           00803     GOTO cycle_wait_input    ; Timeout, keep waiting
+                      00804     
+                      00805     ; Check for double-click (restart entire process)
+020A   082B           00806     MOVF ClickCount, W
+020B   3C02           00807     SUBLW 2
+020C   1903           00808     BTFSC STATUS, Z
+020D   2???           00809     GOTO restart_entire_process
+                      00810     
+                      00811     ; Single click - cycle to next state
+020E   0AB3           00812     INCF DisplayState, F
+020F   0833           00813     MOVF DisplayState, W
+0210   3C03           00814     SUBLW 3
+0211   1903           00815     BTFSC STATUS, Z
+0212   01B3           00816     CLRF DisplayState        ; Wrap around to 0 after state 2
+                      00817     
+0213   2???           00818     GOTO display_cycle_mode
+                      00819 
+                      00820 ;--------------------------------------------------------
+                      00821 ; Display the current state based on DisplayState variable
+                      00822 ; DisplayState: 0=Result, 1=Number1, 2=Number2
+0214                  00823 display_current_state:
+0214   0833           00824     MOVF DisplayState, W
+0215   1903           00825     BTFSC STATUS, Z
+0216   2???           00826     GOTO display_state_result    ; DisplayState = 0
+0217   0333           00827     DECF DisplayState, W
+0218   1903           00828     BTFSC STATUS, Z
+0219   2???           00829     GOTO display_state_number1   ; DisplayState = 1
+021A   2???           00830     GOTO display_state_number2   ; DisplayState = 2
+                      00831 
+021B                  00832 display_state_result:
+                      00833     ; Display Result
+021B   3001           00834     MOVLW 0x01
+021C   10F4           00835     BCF Select, RS
+021D   2???           00836     CALL send
+021E   3080           00837     MOVLW 0x80
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+021F   10F4           00838     BCF Select, RS
+0220   2???           00839     CALL send
+0221   2???           00840     CALL print_result
+                      00841     
+                      00842     ; Load Result data (all zeros) into display variables and show
+0222   2???           00843     CALL load_result_for_display
+0223   2???           00844     CALL display_all_digits
+0224   0008           00845     RETURN
+                      00846 
+0225                  00847 display_state_number1:
+                      00848     ; Display Number 1
+0225   3001           00849     MOVLW 0x01
+0226   10F4           00850     BCF Select, RS
+0227   2???           00851     CALL send
+0228   3080           00852     MOVLW 0x80
+0229   10F4           00853     BCF Select, RS
+022A   2???           00854     CALL send
+022B   2???           00855     CALL print_number1
+                      00856     
+                      00857     ; Load Number 1 data into display variables and show
+022C   2???           00858     CALL load_number1_for_display
+022D   2???           00859     CALL display_all_digits
+022E   0008           00860     RETURN
+                      00861 
+022F                  00862 display_state_number2:
+                      00863     ; Display Number 2
+022F   3001           00864     MOVLW 0x01
+0230   10F4           00865     BCF Select, RS
+0231   2???           00866     CALL send
+0232   3080           00867     MOVLW 0x80
+0233   10F4           00868     BCF Select, RS
+0234   2???           00869     CALL send
+0235   2???           00870     CALL print_number2
+                      00871     
+                      00872     ; Load Number 2 data into display variables and show
+0236   2???           00873     CALL load_number2_for_display
+0237   2???           00874     CALL display_all_digits
+0238   0008           00875     RETURN
+                      00876 
+                      00877 ;--------------------------------------------------------
+                      00878 ; Load Number 1 into display variables (Digit1..Digit6, Dec1..Dec6)
+0239                  00879 load_number1_for_display:
+0239   0834           00880     MOVF Num1_Digit1, W
+023A   00A4           00881     MOVWF Digit1
+023B   0835           00882     MOVF Num1_Digit2, W
+023C   00A5           00883     MOVWF Digit2
+023D   0836           00884     MOVF Num1_Digit3, W
+023E   00A6           00885     MOVWF Digit3
+023F   0837           00886     MOVF Num1_Digit4, W
+0240   00A7           00887     MOVWF Digit4
+0241   0838           00888     MOVF Num1_Digit5, W
+0242   00A8           00889     MOVWF Digit5
+0243   0839           00890     MOVF Num1_Digit6, W
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 18
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0244   00A9           00891     MOVWF Digit6
+                      00892     
+0245   083A           00893     MOVF Num1_Dec1, W
+0246   00AD           00894     MOVWF Dec1
+0247   083B           00895     MOVF Num1_Dec2, W
+0248   00AE           00896     MOVWF Dec2
+0249   083C           00897     MOVF Num1_Dec3, W
+024A   00AF           00898     MOVWF Dec3
+024B   083D           00899     MOVF Num1_Dec4, W
+024C   00B0           00900     MOVWF Dec4
+024D   083E           00901     MOVF Num1_Dec5, W
+024E   00B1           00902     MOVWF Dec5
+024F   083F           00903     MOVF Num1_Dec6, W
+0250   00B2           00904     MOVWF Dec6
+0251   0008           00905     RETURN
+                      00906 
+                      00907 ;--------------------------------------------------------
+                      00908 ; Load Number 2 into display variables
+0252                  00909 load_number2_for_display:
+0252   0840           00910     MOVF Num2_Digit1, W
+0253   00A4           00911     MOVWF Digit1
+0254   0841           00912     MOVF Num2_Digit2, W
+0255   00A5           00913     MOVWF Digit2
+0256   0842           00914     MOVF Num2_Digit3, W
+0257   00A6           00915     MOVWF Digit3
+0258   0843           00916     MOVF Num2_Digit4, W
+0259   00A7           00917     MOVWF Digit4
+025A   0844           00918     MOVF Num2_Digit5, W
+025B   00A8           00919     MOVWF Digit5
+025C   0845           00920     MOVF Num2_Digit6, W
+025D   00A9           00921     MOVWF Digit6
+                      00922     
+025E   0846           00923     MOVF Num2_Dec1, W
+025F   00AD           00924     MOVWF Dec1
+0260   0847           00925     MOVF Num2_Dec2, W
+0261   00AE           00926     MOVWF Dec2
+0262   0848           00927     MOVF Num2_Dec3, W
+0263   00AF           00928     MOVWF Dec3
+0264   0849           00929     MOVF Num2_Dec4, W
+0265   00B0           00930     MOVWF Dec4
+0266   084A           00931     MOVF Num2_Dec5, W
+0267   00B1           00932     MOVWF Dec5
+0268   084B           00933     MOVF Num2_Dec6, W
+0269   00B2           00934     MOVWF Dec6
+026A   0008           00935     RETURN
+                      00936 
+                      00937 ;--------------------------------------------------------
+                      00938 ; Load Result (all zeros) into display variables
+026B                  00939 load_result_for_display:
+026B   01A4           00940     CLRF Digit1
+026C   01A5           00941     CLRF Digit2
+026D   01A6           00942     CLRF Digit3
+026E   01A7           00943     CLRF Digit4
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 19
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+026F   01A8           00944     CLRF Digit5
+0270   01A9           00945     CLRF Digit6
+                      00946     
+0271   01AD           00947     CLRF Dec1
+0272   01AE           00948     CLRF Dec2
+0273   01AF           00949     CLRF Dec3
+0274   01B0           00950     CLRF Dec4
+0275   01B1           00951     CLRF Dec5
+0276   01B2           00952     CLRF Dec6
+0277   0008           00953     RETURN
+                      00954 
+                      00955 ;--------------------------------------------------------
+                      00956 ; Restart the entire process - this is the key fix!
+0278                  00957 restart_entire_process:
+                      00958     ; Clear LCD
+0278   3001           00959     MOVLW 0x01
+0279   10F4           00960     BCF Select, RS
+027A   2???           00961     CALL send
+027B   2???           00962     CALL delay_250ms
+                      00963     
+                      00964     ; Go back to the main program start to clear all numbers and restart
+027C   2???           00965     GOTO main_program_start
+                      00966 
+                      00967 ;--------------------------------------------------------
+                      00968 ; Wait for click or timeout, sets ClickCount: 0=timeout, 1=single, 2=double
+027D                  00969 wait_click_or_timeout
+027D   01AB           00970     CLRF ClickCount
+027E   300C           00971     MOVLW D'12'
+027F   00A1           00972     MOVWF DelayCt
+0280                  00973 wait_click_loop
+0280   300A           00974     MOVLW D'10'
+0281   2???           00975     CALL xms
+0282   1C06           00976     BTFSS PORTB, 0
+0283   2???           00977     GOTO first_click
+0284   0BA1           00978     DECFSZ DelayCt,F
+0285   2???           00979     GOTO wait_click_loop
+0286   0008           00980     RETURN          ; Timeout, ClickCount=0
+                      00981 
+0287                  00982 first_click:
+0287   0AAB           00983     INCF ClickCount,F
+                      00984     ; Wait for release (debounce)
+0288                  00985 wait_release_btn
+0288   1C06           00986     BTFSS PORTB,0
+0289   2???           00987     GOTO wait_release_btn
+028A   300F           00988     MOVLW D'15'
+028B   2???           00989     CALL xms
+                      00990 
+                      00991     ; Wait short period for double click
+028C   3019           00992     MOVLW D'25'
+028D   00A1           00993     MOVWF DelayCt
+028E                  00994 wait_double_time
+028E   300A           00995     MOVLW D'10'
+028F   2???           00996     CALL xms
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 20
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0290   1C06           00997     BTFSS PORTB,0
+0291   2???           00998     GOTO second_click
+0292   0BA1           00999     DECFSZ DelayCt,F
+0293   2???           01000     GOTO wait_double_time
+0294   0008           01001     RETURN          ; Single tap, ClickCount=1
+                      01002 
+0295                  01003 second_click:
+0295   0AAB           01004     INCF ClickCount,F
+                      01005     ; Wait for release again
+0296                  01006 wait_release_btn2
+0296   1C06           01007     BTFSS PORTB,0
+0297   2???           01008     GOTO wait_release_btn2
+0298   300F           01009     MOVLW D'15'
+0299   2???           01010     CALL xms
+029A   0008           01011     RETURN          ; Double tap, ClickCount=2
+                      01012 
+                      01013 ;--------------------------------------------------------
+029B                  01014 display_all_digits
+029B   30C0           01015     MOVLW 0xC0
+029C   10F4           01016     BCF Select, RS
+029D   2???           01017     CALL send
+029E   14F4           01018     BSF Select, RS
+029F   0824           01019     MOVF Digit1, W
+02A0   3E30           01020     ADDLW '0'
+02A1   2???           01021     CALL send
+02A2   0825           01022     MOVF Digit2, W
+02A3   3E30           01023     ADDLW '0'
+02A4   2???           01024     CALL send
+02A5   0826           01025     MOVF Digit3, W
+02A6   3E30           01026     ADDLW '0'
+02A7   2???           01027     CALL send
+02A8   0827           01028     MOVF Digit4, W
+02A9   3E30           01029     ADDLW '0'
+02AA   2???           01030     CALL send
+02AB   0828           01031     MOVF Digit5, W
+02AC   3E30           01032     ADDLW '0'
+02AD   2???           01033     CALL send
+02AE   0829           01034     MOVF Digit6, W
+02AF   3E30           01035     ADDLW '0'
+02B0   2???           01036     CALL send
+02B1   302E           01037     MOVLW '.'
+02B2   2???           01038     CALL send
+02B3   082D           01039     MOVF Dec1, W
+02B4   3E30           01040     ADDLW '0'
+02B5   2???           01041     CALL send
+02B6   082E           01042     MOVF Dec2, W
+02B7   3E30           01043     ADDLW '0'
+02B8   2???           01044     CALL send
+02B9   082F           01045     MOVF Dec3, W
+02BA   3E30           01046     ADDLW '0'
+02BB   2???           01047     CALL send
+02BC   0830           01048     MOVF Dec4, W
+02BD   3E30           01049     ADDLW '0'
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 21
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02BE   2???           01050     CALL send
+02BF   0831           01051     MOVF Dec5, W
+02C0   3E30           01052     ADDLW '0'
+02C1   2???           01053     CALL send
+02C2   0832           01054     MOVF Dec6, W
+02C3   3E30           01055     ADDLW '0'
+02C4   2???           01056     CALL send
+02C5   0008           01057     RETURN
+                      01058 
+02C6                  01059 display_all_digits_with_cursor
+                      01060     ; Shows all digits with the one being edited as DigitValue
+02C6   30C0           01061     MOVLW 0xC0
+02C7   10F4           01062     BCF Select, RS
+02C8   2???           01063     CALL send
+02C9   14F4           01064     BSF Select, RS
+                      01065 
+02CA   3024           01066     MOVLW Digit1
+02CB   0084           01067     MOVWF FSR
+02CC   3006           01068     MOVLW 6
+02CD   00A1           01069     MOVWF DelayCt
+                      01070 
+02CE                  01071 show_digits_loop:
+02CE   0804           01072     MOVF FSR, W
+02CF   00A0           01073     MOVWF Temp
+02D0   082A           01074     MOVF DigitPtr, W
+02D1   0220           01075     SUBWF Temp, W
+02D2   1D03           01076     BTFSS STATUS, Z
+02D3   2???           01077     GOTO show_digit_from_mem
+                      01078     ; Current digit: show DigitValue
+02D4   0822           01079     MOVF DigitValue, W
+02D5   3E30           01080     ADDLW '0'
+02D6   2???           01081     CALL send
+02D7   2???           01082     GOTO after_digit
+02D8                  01083 show_digit_from_mem:
+02D8   0800           01084     MOVF INDF, W
+02D9   3E30           01085     ADDLW '0'
+02DA   2???           01086     CALL send
+02DB                  01087 after_digit:
+02DB   0A84           01088     INCF FSR, F
+02DC   0BA1           01089     DECFSZ DelayCt, f
+02DD   2???           01090     GOTO show_digits_loop
+                      01091 
+                      01092     ; Decimal dot
+02DE   302E           01093     MOVLW '.'
+02DF   2???           01094     CALL send
+                      01095 
+                      01096     ; Now decimals
+02E0   302D           01097     MOVLW Dec1
+02E1   0084           01098     MOVWF FSR
+02E2   3006           01099     MOVLW 6
+02E3   00A1           01100     MOVWF DelayCt
+                      01101 
+02E4                  01102 show_decs_loop:
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 22
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02E4   0804           01103     MOVF FSR, W
+02E5   00A0           01104     MOVWF Temp
+02E6   082A           01105     MOVF DigitPtr, W
+02E7   0220           01106     SUBWF Temp, W
+02E8   1D03           01107     BTFSS STATUS, Z
+02E9   2???           01108     GOTO show_dec_from_mem
+                      01109     ; Current digit: show DigitValue
+02EA   0822           01110     MOVF DigitValue, W
+02EB   3E30           01111     ADDLW '0'
+02EC   2???           01112     CALL send
+02ED   2???           01113     GOTO after_dec
+02EE                  01114 show_dec_from_mem:
+02EE   0800           01115     MOVF INDF, W
+02EF   3E30           01116     ADDLW '0'
+02F0   2???           01117     CALL send
+02F1                  01118 after_dec:
+02F1   0A84           01119     INCF FSR, F
+02F2   0BA1           01120     DECFSZ DelayCt, f
+02F3   2???           01121     GOTO show_decs_loop
+02F4   0008           01122     RETURN
+                      01123 
+                      01124 ;--------------------------------------------------------
+02F5                  01125 print_welcome
+02F5   14F4           01126     BSF Select, RS
+02F6   3057           01127     MOVLW 'W'
+02F7   2???           01128     CALL send
+02F8   3045           01129     MOVLW 'E'
+02F9   2???           01130     CALL send
+02FA   304C           01131     MOVLW 'L'
+02FB   2???           01132     CALL send
+02FC   3043           01133     MOVLW 'C'
+02FD   2???           01134     CALL send
+02FE   304F           01135     MOVLW 'O'
+02FF   2???           01136     CALL send
+0300   304D           01137     MOVLW 'M'
+0301   2???           01138     CALL send
+0302   3045           01139     MOVLW 'E'
+0303   2???           01140     CALL send
+0304   3020           01141     MOVLW ' '
+0305   2???           01142     CALL send
+0306   3054           01143     MOVLW 'T'
+0307   2???           01144     CALL send
+0308   304F           01145     MOVLW 'O'
+0309   2???           01146     CALL send
+030A   0008           01147     RETURN
+                      01148 
+030B                  01149 print_division
+030B   14F4           01150     BSF Select, RS
+030C   3044           01151     MOVLW 'D'
+030D   2???           01152     CALL send
+030E   3049           01153     MOVLW 'I'
+030F   2???           01154     CALL send
+0310   3056           01155     MOVLW 'V'
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 23
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0311   2???           01156     CALL send
+0312   3049           01157     MOVLW 'I'
+0313   2???           01158     CALL send
+0314   3053           01159     MOVLW 'S'
+0315   2???           01160     CALL send
+0316   3049           01161     MOVLW 'I'
+0317   2???           01162     CALL send
+0318   304F           01163     MOVLW 'O'
+0319   2???           01164     CALL send
+031A   304E           01165     MOVLW 'N'
+031B   2???           01166     CALL send
+031C   0008           01167     RETURN
+                      01168 
+031D                  01169 print_number1
+031D   14F4           01170     BSF Select, RS
+031E   304E           01171     MOVLW 'N'
+031F   2???           01172     CALL send
+0320   3075           01173     MOVLW 'u'
+0321   2???           01174     CALL send
+0322   306D           01175     MOVLW 'm'
+0323   2???           01176     CALL send
+0324   3062           01177     MOVLW 'b'
+0325   2???           01178     CALL send
+0326   3065           01179     MOVLW 'e'
+0327   2???           01180     CALL send
+0328   3072           01181     MOVLW 'r'
+0329   2???           01182     CALL send
+032A   3020           01183     MOVLW ' '
+032B   2???           01184     CALL send
+032C   3031           01185     MOVLW '1'
+032D   2???           01186     CALL send
+032E   0008           01187     RETURN
+                      01188 
+032F                  01189 print_number2
+032F   14F4           01190     BSF Select, RS
+0330   304E           01191     MOVLW 'N'
+0331   2???           01192     CALL send
+0332   3075           01193     MOVLW 'u'
+0333   2???           01194     CALL send
+0334   306D           01195     MOVLW 'm'
+0335   2???           01196     CALL send
+0336   3062           01197     MOVLW 'b'
+0337   2???           01198     CALL send
+0338   3065           01199     MOVLW 'e'
+0339   2???           01200     CALL send
+033A   3072           01201     MOVLW 'r'
+033B   2???           01202     CALL send
+033C   3020           01203     MOVLW ' '
+033D   2???           01204     CALL send
+033E   3032           01205     MOVLW '2'
+033F   2???           01206     CALL send
+0340   0008           01207     RETURN
+                      01208 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 24
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0341                  01209 print_result
+0341   14F4           01210     BSF Select, RS
+0342   3052           01211     MOVLW 'R'
+0343   2???           01212     CALL send
+0344   3065           01213     MOVLW 'e'
+0345   2???           01214     CALL send
+0346   3073           01215     MOVLW 's'
+0347   2???           01216     CALL send
+0348   3075           01217     MOVLW 'u'
+0349   2???           01218     CALL send
+034A   306C           01219     MOVLW 'l'
+034B   2???           01220     CALL send
+034C   3074           01221     MOVLW 't'
+034D   2???           01222     CALL send
+034E   0008           01223     RETURN
+                      01224 
+034F                  01225 delay_250ms
+034F   3002           01226     MOVLW D'2'
+0350   00A1           01227     MOVWF DelayCt
+0351                  01228 d250_loop
+0351   30FA           01229     MOVLW D'250'
+0352   2???           01230     CALL xms
+0353   0BA1           01231     DECFSZ DelayCt, f
+0354   2???           01232     GOTO d250_loop
+0355   0008           01233     RETURN
+                      01234 
+0356                  01235 delay_1s
+0356   3004           01236     MOVLW D'4'
+0357   00A1           01237     MOVWF DelayCt
+0358                  01238 d1s_loop
+0358   30FA           01239     MOVLW D'250'
+0359   2???           01240     CALL xms
+035A   0BA1           01241     DECFSZ DelayCt, f
+035B   2???           01242     GOTO d1s_loop
+035C   0008           01243     RETURN
+                      01244 
+                      01245     INCLUDE "LCDIS.INC"
+                      00001 ;--------------------------------------------------------------
+                      00002 ;       LCDIS.INC               MPB     19-12-05
+                      00003 ;
+                      00004 ;       Include file to operate 16x2 LCD display
+                      00005 ;       Uses GPR 70 - 75
+                      00006 ;       
+                      00007 ;       Final version
+                      00008 ;--------------------------------------------------------------
+                      00009 
+  00000070            00010 Timer1  EQU     70              ; 1ms count register
+  00000071            00011 TimerX  EQU     71              ; Xms count register
+  00000072            00012 Var     EQU     72              ; Output variable
+  00000073            00013 Point   EQU     73              ; Program table pointer
+  00000074            00014 Select  EQU     74              ; Used to set or clear RS bit
+  00000075            00015 OutCod  EQU     75              ; Temp store for output code
+                      00016 
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 25
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000001            00017 RS      EQU     1               ; Register select output bit
+  00000002            00018 E       EQU     2               ; Enable display input
+                      00019 
+                      00020 
+                      00021 ;--------------------------------------------------------------
+                      00022 ;       1ms delay with 1us cycle time (1000 cycles)
+                      00023 ;--------------------------------------------------------------
+035D   30F9           00024 onems   MOVLW   D'249'          ; Count for 1ms delay 
+035E   00F0           00025                 MOVWF   Timer1          ; Load count    2 + (1 + 1 + 2) * 248 + 1 + 2 + 2
+035F   0000           00026 loop1   NOP                     ; Pad for 4 cycle loop
+Message[305]: Using default destination of 1 (file).
+0360   0BF0           00027                 DECFSZ  Timer1          ; Count
+0361   2???           00028                 GOTO    loop1           ; until Z
+0362   0008           00029                 RETURN                  ; and finish
+                      00030 
+                      00031 ;--------------------------------------------------------------
+                      00032 ;       Delay Xms
+                      00033 ;       Receives count in W, uses Onems
+                      00034 ;--------------------------------------------------------------
+0363   00F1           00035 xms             MOVWF   TimerX          ; Count for X ms
+0364   2???           00036 loopX   CALL    onems           ; Delay 1ms
+Message[305]: Using default destination of 1 (file).
+0365   0BF1           00037                 DECFSZ  TimerX          ; Repeat X times 
+0366   2???           00038                 GOTO    loopX           ; until Z
+0367   0008           00039                 RETURN                  ; and finish
+                      00040 
+                      00041 ;--------------------------------------------------------------
+                      00042 ;       Generate data/command clock siganl E
+                      00043 ;--------------------------------------------------------------
+0368   1508           00044 pulseE  BSF     PORTD,E         ; Set E high
+0369   2???           00045         CALL    onems           ; Delay 1ms
+036A   1108           00046         BCF     PORTD,E         ; Reset E low
+036B   2???           00047         CALL    onems           ; Delay 1ms
+036C   0008           00048         RETURN                  ; done
+                      00049 
+                      00050 ;--------------------------------------------------------------
+                      00051 ;       Send a command byte in two nibbles from RB4 - RB7
+                      00052 ;       Receives command in W, uses PulseE and Onems
+                      00053 ;--------------------------------------------------------------
+036D   00F5           00054 send    MOVWF   OutCod          ; Store output code
+036E   39F0           00055         ANDLW   0F0             ; Clear low nybble
+036F   0088           00056         MOVWF   PORTD           ; Output high nybble
+0370   18F4           00057         BTFSC   Select,RS       ; Test RS bit
+0371   1488           00058         BSF     PORTD,RS        ; and set for data
+0372   2???           00059         CALL    pulseE          ; and clock display register
+0373   2???           00060         CALL    onems           ; wait 1ms for display
+                      00061 
+Message[305]: Using default destination of 1 (file).
+0374   0EF5           00062         SWAPF   OutCod          ; Swap low and high nybbles 
+0375   0875           00063         MOVF    OutCod,W        ; Retrieve output code
+0376   39F0           00064         ANDLW   0F0             ; Clear low nybble
+0377   0088           00065         MOVWF   PORTD           ; Output low nybble
+0378   18F4           00066         BTFSC   Select,RS       ; Test RS bit
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 26
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0379   1488           00067         BSF     PORTD,RS        ; and set for data
+037A   2???           00068         CALL    pulseE          ; and clock display register
+037B   2???           00069         CALL    onems           ; wait 1ms for display
+037C   0008           00070         RETURN                  ; done
+                      00071 
+                      00072 ;--------------------------------------------------------------
+                      00073 ;       Initialise the display
+                      00074 ;       Uses Send
+                      00075 ;--------------------------------------------------------------
+037D   3064           00076 inid    MOVLW   D'100'          ; Load count for 100ms delay
+037E   2???           00077         CALL    xms             ; and wait for display start
+037F   30F0           00078         MOVLW   0F0             ; Mask for select code
+0380   00F4           00079         MOVWF   Select          ; High nybble not masked
+                      00080 
+0381   3030           00081         MOVLW   0x30            ; Load initial nibble
+0382   0088           00082         MOVWF   PORTD           ; and output it to display
+0383   2???           00083         CALL    pulseE          ; Latch initial code
+0384   3005           00084         MOVLW   D'5'            ; Set delay 5ms
+0385   2???           00085         CALL    xms             ; and wait
+0386   2???           00086         CALL    pulseE          ; Latch initial code again
+0387   2???           00087         CALL    onems           ; Wait 1ms
+0388   2???           00088         CALL    pulseE          ; Latch initial code again
+0389   1208           00089         BCF     PORTD,4         ; Set 4-bit mode
+038A   2???           00090         CALL    pulseE          ; Latch it
+                      00091         
+038B   3028           00092         MOVLW   0x28            ; Set 4-bit mode, 2 lines
+038C   2???           00093         CALL    send            ; and send code
+038D   3008           00094         MOVLW   0x08            ; Switch off display
+038E   2???           00095         CALL    send            ; and send code
+038F   3001           00096         MOVLW   0x01            ; Code to clear display
+0390   2???           00097         CALL    send            ; and send code
+0391   3006           00098         MOVLW   0x06            ; Enable cursor auto inc  
+0392   2???           00099         CALL    send            ; and send code
+0393   3080           00100         MOVLW   0x80            ; Zero display address
+0394   2???           00101         CALL    send            ; and send code
+0395   300C           00102         MOVLW   0x0C            ; Turn on display  
+0396   2???           00103         CALL    send            ; and send code
+                      00104 
+0397   0008           00105         RETURN                  ; Done
+                      00106 
+                      00107 ;--------------------------------------------------------------
+                      01246 
+3731                  01247     END
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1                             00000015
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2                             0000001B
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CIS                               00000003
+CKE                               00000006
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CKP                               00000004
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             0000009C
+CMIE                              00000006
+CMIF                              00000006
+CREN                              00000004
+CSRC                              00000007
+CVR0                              00000000
+CVR1                              00000001
+CVR2                              00000002
+CVR3                              00000003
+CVRCON                            0000009D
+CVREN                             00000007
+CVROE                             00000006
+CVRR                              00000005
+ClickCount                        0000002B
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+D_A                               00000005
+D_NOT_A                           00000005
+Dec1                              0000002D
+Dec2                              0000002E
+Dec3                              0000002F
+Dec4                              00000030
+Dec5                              00000031
+Dec6                              00000032
+DelayCt                           00000021
+Digit1                            00000024
+Digit2                            00000025
+Digit3                            00000026
+Digit4                            00000027
+Digit5                            00000028
+Digit6                            00000029
+DigitPtr                          0000002A
+DigitValue                        00000022
+DisplayState                      00000033
+E                                 00000002
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+Inactivity                        00000023
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+Num1_Dec1                         0000003A
+Num1_Dec2                         0000003B
+Num1_Dec3                         0000003C
+Num1_Dec4                         0000003D
+Num1_Dec5                         0000003E
+Num1_Dec6                         0000003F
+Num1_Digit1                       00000034
+Num1_Digit2                       00000035
+Num1_Digit3                       00000036
+Num1_Digit4                       00000037
+Num1_Digit5                       00000038
+Num1_Digit6                       00000039
+Num2_Dec1                         00000046
+Num2_Dec2                         00000047
+Num2_Dec3                         00000048
+Num2_Dec4                         00000049
+Num2_Dec5                         0000004A
+Num2_Dec6                         0000004B
+Num2_Digit1                       00000040
+Num2_Digit2                       00000041
+Num2_Digit3                       00000042
+Num2_Digit4                       00000043
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Num2_Digit5                       00000044
+Num2_Digit6                       00000045
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+OutCod                            00000075
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+Point                             00000073
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RC0                               00000000
+RC1                               00000001
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+RS                                00000001
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_NOT_W                           00000002
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 32
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPSTAT                           00000094
+STATUS                            00000003
+SYNC                              00000004
+Section                           0000002C
+Select                            00000074
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR1                              0000000E
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000087
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 33
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000088
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+Temp                              00000020
+Timer1                            00000070
+TimerX                            00000071
+UA                                00000001
+Var                               00000072
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_BOREN_OFF                        00003FBF
+_BOREN_ON                         00003FFF
+_CONFIG                           00002007
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00001FFF
+_CP_OFF                           00003FFF
+_CP_ON                            00001FFF
+_DEBUG_OFF                        00003FFF
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 34
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_DEBUG_ON                         000037FF
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_1FOURTH                      00003BFF
+_WRT_256                          00003DFF
+_WRT_HALF                         000039FF
+_WRT_OFF                          00003FFF
+_XT_OSC                           00003FFD
+__16F877A                         00000001
+__DEBUG                           1
+after_dec                         000002F1
+after_digit                       000002DB
+blink_loop                        0000000E
+clear_all_numbers                 000001BA
+cycle_wait_input                  00000206
+d1s_loop                          00000358
+d250_loop                         00000351
+delay_1s                          00000356
+delay_250ms                       0000034F
+display_all_digits                0000029B
+display_all_digits_with_cursor    000002C6
+display_current_state             00000214
+display_cycle_mode                00000205
+display_state_number1             00000225
+display_state_number2             0000022F
+display_state_result              0000021B
+edit_dec_digit_handle_press1      000000CF
+edit_dec_digit_handle_press2      0000019A
+edit_dec_digit_inactivity1        000000DA
+edit_dec_digit_inactivity2        000001A5
+edit_dec_digit_input_loop1        000000C4
+edit_dec_digit_input_loop2        0000018F
+edit_digit_handle_press1          00000076
+edit_digit_handle_press2          00000141
+edit_digit_inactivity1            00000081
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 35
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+edit_digit_inactivity2            0000014C
+edit_digit_input_loop1            0000006B
+edit_digit_input_loop2            00000136
+edit_next_dec_digit1              000000BE
+edit_next_dec_digit2              00000189
+edit_next_digit1                  00000065
+edit_next_digit2                  00000130
+edit_this_dec_digit1              000000C2
+edit_this_dec_digit2              0000018D
+edit_this_digit1                  00000069
+edit_this_digit2                  00000134
+finish_number1                    000000E6
+finish_number2                    000001B1
+first_click                       00000287
+first_dec_digit_handle_press1     000000A2
+first_dec_digit_handle_press2     0000016D
+first_dec_digit_inactivity1       000000AD
+first_dec_digit_inactivity2       00000178
+first_dec_digit_input_loop1       00000097
+first_dec_digit_input_loop2       00000162
+first_decimal_digit_entry1        00000095
+first_decimal_digit_entry2        00000160
+first_digit_entry1                0000003C
+first_digit_entry2                00000107
+first_digit_handle_press1         00000049
+first_digit_handle_press2         00000114
+first_digit_inactivity1           00000054
+first_digit_inactivity2           0000011F
+first_digit_input_loop1           0000003E
+first_digit_input_loop2           00000109
+inid                              0000037D
+load_number1_for_display          00000239
+load_number2_for_display          00000252
+load_result_for_display           0000026B
+loop1                             0000035F
+loopX                             00000364
+main_program_start                00000021
+onems                             0000035D
+print_division                    0000030B
+print_number1                     0000031D
+print_number2                     0000032F
+print_result                      00000341
+print_welcome                     000002F5
+pulseE                            00000368
+restart_entire_process            00000278
+save_number1                      000001D3
+save_number2                      000001EC
+second_click                      00000295
+send                              0000036D
+show_dec_from_mem                 000002EE
+show_decs_loop                    000002E4
+show_digit_from_mem               000002D8
+show_digits_loop                  000002CE
+MPASM  5.50                        MASTER.ASM   7-6-2025  22:58:09         PAGE 36
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+start_decimal_section1            0000008E
+start_decimal_section2            00000159
+start_entry1                      00000037
+start_entry2                      00000102
+start_number1                     00000022
+start_number2                     000000ED
+wait_click_loop                   00000280
+wait_click_or_timeout             0000027D
+wait_double_time                  0000028E
+wait_release1                     00000049
+wait_release12                    00000114
+wait_release2                     00000076
+wait_release22                    00000141
+wait_release3                     000000A2
+wait_release32                    0000016D
+wait_release4                     000000CF
+wait_release42                    0000019A
+wait_release_btn                  00000288
+wait_release_btn2                 00000296
+xms                               00000363
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     5 reported,     0 suppressed
+
+

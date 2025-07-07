@@ -1,0 +1,228 @@
+MPLINK 4.48, Linker
+Linker Map File - Created Sun Jul 06 22:58:09 2025
+
+                                 Section Info
+                  Section       Type    Address   Location Size(Bytes)
+                ---------  ---------  ---------  ---------  ---------
+                   .org_0       code   0x000000    program   0x000730
+                   .cinit    romdata   0x000398    program   0x000004
+    .config_2007_MASTER.O       code   0x002007    program   0x000002
+
+
+
+                              Program Memory Usage 
+                               Start         End      
+                           ---------   ---------      
+                            0x000000    0x000399      
+                            0x002007    0x002007      
+            923 out of 8454 program addresses used, program memory utilization is 10%
+
+
+
+                              Symbols - Sorted by Name
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+                after_dec   0x0002f1    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              after_digit   0x0002db    program     static C:\proteus\LCD_mplab\Master\Master.asm
+               blink_loop   0x00000e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+        clear_all_numbers   0x0001ba    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         cycle_wait_input   0x000206    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                 d1s_loop   0x000358    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                d250_loop   0x000351    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                 delay_1s   0x000356    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              delay_250ms   0x00034f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       display_all_digits   0x00029b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+display_all_digits_with_cursor   0x0002c6    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_current_state   0x000214    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       display_cycle_mode   0x000205    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_state_number1   0x000225    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_state_number2   0x00022f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     display_state_result   0x00021b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_handle_press1   0x0000cf    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_handle_press2   0x00019a    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_inactivity1   0x0000da    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_inactivity2   0x0001a5    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_input_loop1   0x0000c4    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_input_loop2   0x00018f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ edit_digit_handle_press1   0x000076    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ edit_digit_handle_press2   0x000141    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_inactivity1   0x000081    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_inactivity2   0x00014c    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_input_loop1   0x00006b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_input_loop2   0x000136    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_next_dec_digit1   0x0000be    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_next_dec_digit2   0x000189    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_next_digit1   0x000065    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_next_digit2   0x000130    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_this_dec_digit1   0x0000c2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_this_dec_digit2   0x00018d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_this_digit1   0x000069    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_this_digit2   0x000134    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           finish_number1   0x0000e6    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           finish_number2   0x0001b1    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              first_click   0x000287    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_handle_press1   0x0000a2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_handle_press2   0x00016d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_inactivity1   0x0000ad    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_inactivity2   0x000178    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_input_loop1   0x000097    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_input_loop2   0x000162    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_decimal_digit_entry1   0x000095    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_decimal_digit_entry2   0x000160    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       first_digit_entry1   0x00003c    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       first_digit_entry2   0x000107    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_digit_handle_press1   0x000049    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_digit_handle_press2   0x000114    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_inactivity1   0x000054    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_inactivity2   0x00011f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_input_loop1   0x00003e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_input_loop2   0x000109    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                     inid   0x00037d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+ load_number1_for_display   0x000239    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ load_number2_for_display   0x000252    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  load_result_for_display   0x00026b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                    loop1   0x00035f    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                    loopX   0x000364    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+       main_program_start   0x000021    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                    onems   0x00035d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+           print_division   0x00030b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_number1   0x00031d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_number2   0x00032f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             print_result   0x000341    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_welcome   0x0002f5    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                   pulseE   0x000368    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+   restart_entire_process   0x000278    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             save_number1   0x0001d3    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             save_number2   0x0001ec    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             second_click   0x000295    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                     send   0x00036d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+        show_dec_from_mem   0x0002ee    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           show_decs_loop   0x0002e4    program     static C:\proteus\LCD_mplab\Master\Master.asm
+      show_digit_from_mem   0x0002d8    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         show_digits_loop   0x0002ce    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   start_decimal_section1   0x00008e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   start_decimal_section2   0x000159    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             start_entry1   0x000037    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             start_entry2   0x000102    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            start_number1   0x000022    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            start_number2   0x0000ed    program     static C:\proteus\LCD_mplab\Master\Master.asm
+          wait_click_loop   0x000280    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    wait_click_or_timeout   0x00027d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         wait_double_time   0x00028e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release1   0x000049    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release12   0x000114    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release2   0x000076    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release22   0x000141    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release3   0x0000a2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release32   0x00016d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release4   0x0000cf    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release42   0x00019a    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         wait_release_btn   0x000288    program     static C:\proteus\LCD_mplab\Master\Master.asm
+        wait_release_btn2   0x000296    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                      xms   0x000363    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+
+
+
+                              Symbols - Sorted by Address
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+               blink_loop   0x00000e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       main_program_start   0x000021    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            start_number1   0x000022    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             start_entry1   0x000037    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       first_digit_entry1   0x00003c    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_input_loop1   0x00003e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_digit_handle_press1   0x000049    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release1   0x000049    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_inactivity1   0x000054    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_next_digit1   0x000065    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_this_digit1   0x000069    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_input_loop1   0x00006b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ edit_digit_handle_press1   0x000076    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release2   0x000076    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_inactivity1   0x000081    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   start_decimal_section1   0x00008e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_decimal_digit_entry1   0x000095    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_input_loop1   0x000097    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_handle_press1   0x0000a2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release3   0x0000a2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_inactivity1   0x0000ad    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_next_dec_digit1   0x0000be    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_this_dec_digit1   0x0000c2    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_input_loop1   0x0000c4    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_handle_press1   0x0000cf    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            wait_release4   0x0000cf    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_inactivity1   0x0000da    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           finish_number1   0x0000e6    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            start_number2   0x0000ed    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             start_entry2   0x000102    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       first_digit_entry2   0x000107    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_input_loop2   0x000109    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_digit_handle_press2   0x000114    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release12   0x000114    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  first_digit_inactivity2   0x00011f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_next_digit2   0x000130    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         edit_this_digit2   0x000134    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_input_loop2   0x000136    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release22   0x000141    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ edit_digit_handle_press2   0x000141    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   edit_digit_inactivity2   0x00014c    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   start_decimal_section2   0x000159    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_decimal_digit_entry2   0x000160    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_input_loop2   0x000162    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_handle_press2   0x00016d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release32   0x00016d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+first_dec_digit_inactivity2   0x000178    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_next_dec_digit2   0x000189    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     edit_this_dec_digit2   0x00018d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_input_loop2   0x00018f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_handle_press2   0x00019a    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           wait_release42   0x00019a    program     static C:\proteus\LCD_mplab\Master\Master.asm
+edit_dec_digit_inactivity2   0x0001a5    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           finish_number2   0x0001b1    program     static C:\proteus\LCD_mplab\Master\Master.asm
+        clear_all_numbers   0x0001ba    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             save_number1   0x0001d3    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             save_number2   0x0001ec    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       display_cycle_mode   0x000205    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         cycle_wait_input   0x000206    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_current_state   0x000214    program     static C:\proteus\LCD_mplab\Master\Master.asm
+     display_state_result   0x00021b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_state_number1   0x000225    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    display_state_number2   0x00022f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ load_number1_for_display   0x000239    program     static C:\proteus\LCD_mplab\Master\Master.asm
+ load_number2_for_display   0x000252    program     static C:\proteus\LCD_mplab\Master\Master.asm
+  load_result_for_display   0x00026b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+   restart_entire_process   0x000278    program     static C:\proteus\LCD_mplab\Master\Master.asm
+    wait_click_or_timeout   0x00027d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+          wait_click_loop   0x000280    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              first_click   0x000287    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         wait_release_btn   0x000288    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         wait_double_time   0x00028e    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             second_click   0x000295    program     static C:\proteus\LCD_mplab\Master\Master.asm
+        wait_release_btn2   0x000296    program     static C:\proteus\LCD_mplab\Master\Master.asm
+       display_all_digits   0x00029b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+display_all_digits_with_cursor   0x0002c6    program     static C:\proteus\LCD_mplab\Master\Master.asm
+         show_digits_loop   0x0002ce    program     static C:\proteus\LCD_mplab\Master\Master.asm
+      show_digit_from_mem   0x0002d8    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              after_digit   0x0002db    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           show_decs_loop   0x0002e4    program     static C:\proteus\LCD_mplab\Master\Master.asm
+        show_dec_from_mem   0x0002ee    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                after_dec   0x0002f1    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_welcome   0x0002f5    program     static C:\proteus\LCD_mplab\Master\Master.asm
+           print_division   0x00030b    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_number1   0x00031d    program     static C:\proteus\LCD_mplab\Master\Master.asm
+            print_number2   0x00032f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+             print_result   0x000341    program     static C:\proteus\LCD_mplab\Master\Master.asm
+              delay_250ms   0x00034f    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                d250_loop   0x000351    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                 delay_1s   0x000356    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                 d1s_loop   0x000358    program     static C:\proteus\LCD_mplab\Master\Master.asm
+                    onems   0x00035d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                    loop1   0x00035f    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                      xms   0x000363    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                    loopX   0x000364    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                   pulseE   0x000368    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                     send   0x00036d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+                     inid   0x00037d    program     static C:\proteus\LCD_mplab\Master\LCDIS.INC
+
+

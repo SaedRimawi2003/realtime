@@ -1,0 +1,1935 @@
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001     PROCESSOR 16F877A
+2007   3731           00002     __CONFIG 0x3731
+                      00003 
+                      00004     INCLUDE "P16F877A.INC"
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F877A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00566         LIST
+                      00005 
+                      00006 ; Original LCD control definitions
+  00000001            00007 RS      EQU 1
+  00000002            00008 E       EQU 2
+  00000074            00009 Select  EQU 74
+  00000020            00010 Temp    EQU 0x20
+  00000021            00011 DelayCt EQU 0x21
+                      00012 
+                      00013 ; Variables for 12-digit division with decimal precision
+                      00014 ; First Number (A) - 12 digits - DIVIDEND
+  00000024            00015 A_Digit1    EQU 0x24    ; Most significant digit
+  00000025            00016 A_Digit2    EQU 0x25
+  00000026            00017 A_Digit3    EQU 0x26
+  00000027            00018 A_Digit4    EQU 0x27
+  00000028            00019 A_Digit5    EQU 0x28
+  00000029            00020 A_Digit6    EQU 0x29
+  0000002A            00021 A_Digit7    EQU 0x2A
+  0000002B            00022 A_Digit8    EQU 0x2B
+  0000002C            00023 A_Digit9    EQU 0x2C
+  0000002D            00024 A_Digit10   EQU 0x2D
+  0000002E            00025 A_Digit11   EQU 0x2E
+  0000002F            00026 A_Digit12   EQU 0x2F    ; Least significant digit
+                      00027 
+                      00028 ; Second Number (B) - 12 digits - DIVISOR  
+  00000030            00029 B_Digit1    EQU 0x30    ; Most significant digit
+  00000031            00030 B_Digit2    EQU 0x31
+  00000032            00031 B_Digit3    EQU 0x32
+  00000033            00032 B_Digit4    EQU 0x33
+  00000034            00033 B_Digit5    EQU 0x34
+  00000035            00034 B_Digit6    EQU 0x35
+  00000036            00035 B_Digit7    EQU 0x36
+  00000037            00036 B_Digit8    EQU 0x37
+  00000038            00037 B_Digit9    EQU 0x38
+  00000039            00038 B_Digit10   EQU 0x39
+  0000003A            00039 B_Digit11   EQU 0x3A
+  0000003B            00040 B_Digit12   EQU 0x3B    ; Least significant digit
+                      00041 
+                      00042 ; Working copies (to preserve originals)
+  00000040            00043 Work_A1     EQU 0x40
+  00000041            00044 Work_A2     EQU 0x41
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000042            00045 Work_A3     EQU 0x42
+  00000043            00046 Work_A4     EQU 0x43
+  00000044            00047 Work_A5     EQU 0x44
+  00000045            00048 Work_A6     EQU 0x45
+  00000046            00049 Work_A7     EQU 0x46
+  00000047            00050 Work_A8     EQU 0x47
+  00000048            00051 Work_A9     EQU 0x48
+  00000049            00052 Work_A10    EQU 0x49
+  0000004A            00053 Work_A11    EQU 0x4A
+  0000004B            00054 Work_A12    EQU 0x4B
+                      00055 
+                      00056 ; Division Result (Quotient) - 12 digits in 6.6 format
+  00000050            00057 Result1     EQU 0x50    ; Most significant digit (integer part)
+  00000051            00058 Result2     EQU 0x51
+  00000052            00059 Result3     EQU 0x52
+  00000053            00060 Result4     EQU 0x53
+  00000054            00061 Result5     EQU 0x54
+  00000055            00062 Result6     EQU 0x55    ; Least significant digit of integer part
+  00000056            00063 Result7     EQU 0x56    ; Most significant digit of fractional part
+  00000057            00064 Result8     EQU 0x57
+  00000058            00065 Result9     EQU 0x58
+  00000059            00066 Result10    EQU 0x59
+  0000005A            00067 Result11    EQU 0x5A
+  0000005B            00068 Result12    EQU 0x5B    ; Least significant digit of fractional part
+                      00069 
+                      00070 ; Control variables
+  0000005C            00071 DivByZero   EQU 0x5C    ; Division by zero flag
+  0000005D            00072 CompareFlag EQU 0x5D    ; 0 = Work_A >= B, 1 = Work_A < B
+  0000005E            00073 FractionStep EQU 0x5E   ; Current fractional digit being calculated (0-5)
+                      00074 
+                      00075     ORG 0
+0000   0000           00076     NOP
+                      00077 
+                      00078     ; Setup I/O ports
+0001   1683 1303      00079     BANKSEL TRISD
+0003   3000           00080     MOVLW 0x00
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0088           00081     MOVWF TRISD        ; Set PORTD as output for LCD
+                      00082 
+0005   1683 1303      00083     BANKSEL TRISB
+0007   3001           00084     MOVLW 0x01         ; Set RB0 as input for button
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0008   0086           00085     MOVWF TRISB
+                      00086 
+0009   1283 1303      00087     BANKSEL PORTD      ; Return to bank 0
+                      00088 
+                      00089     ; Initialize LCD
+000B   2???           00090     CALL inid
+                      00091 
+                      00092     ; Welcome message
+000C   3080           00093     MOVLW 0x80         ; Line 1
+000D   10F4           00094     BCF Select, RS
+000E   2???           00095     CALL send
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000F   2???           00096     CALL print_division_msg
+                      00097 
+0010   2???           00098     CALL delay_2s
+                      00099 
+                      00100 ; ============= TEST CASE: 100 ÷ 3 = 33.333333 =============
+0011                  00101 load_test_numbers:
+                      00102     ; Dividend = 000100000000 (100.000000)
+0011   01A4           00103     CLRF A_Digit1       ; 0
+0012   01A5           00104     CLRF A_Digit2       ; 0
+0013   01A6           00105     CLRF A_Digit3       ; 0
+0014   3001           00106     MOVLW D'1'
+0015   00A7           00107     MOVWF A_Digit4      ; 1
+0016   3007           00108     MOVLW D'7'
+0017   00A6           00109     MOVWF A_Digit3     ; 1
+0018   01A9           00110     CLRF A_Digit6       ; 0
+0019   01AA           00111     CLRF A_Digit7       ; 0
+001A   01AB           00112     CLRF A_Digit8       ; 0
+001B   3009           00113     MOVLW D'9'
+001C   00AC           00114     MOVWF A_Digit9     ; 1
+001D   01AD           00115     CLRF A_Digit10      ; 0
+001E   01AE           00116     CLRF A_Digit11      ; 0
+001F   01AF           00117     CLRF A_Digit12      ; 0
+                      00118 
+                      00119     ; Divisor = 000003000000 (3.000000)
+0020   01B0           00120     CLRF B_Digit1       ; 0
+0021   01B1           00121     CLRF B_Digit2       ; 0
+0022   01B2           00122     CLRF B_Digit3       ; 0
+0023   01B3           00123     CLRF B_Digit4       ; 0
+0024   01B4           00124     CLRF B_Digit5       ; 0
+0025   3008           00125     MOVLW D'8'
+0026   00B5           00126     MOVWF B_Digit6      ; 3
+0027   01B6           00127     CLRF B_Digit7       ; 0
+0028   01B7           00128     CLRF B_Digit8       ; 0
+0029   3002           00129     MOVLW D'2'
+002A   00B8           00130     MOVWF B_Digit9      ; 3
+002B   01B9           00131     CLRF B_Digit10      ; 0
+002C   01BA           00132     CLRF B_Digit11      ; 0
+002D   01BB           00133     CLRF B_Digit12      ; 0
+                      00134 
+                      00135 ; ============= DISPLAY DIVIDEND =============
+002E                  00136 display_dividend:
+002E   3001           00137     MOVLW 0x01
+002F   10F4           00138     BCF Select, RS
+0030   2???           00139     CALL send
+                      00140     
+0031   3080           00141     MOVLW 0x80         ; Line 1
+0032   10F4           00142     BCF Select, RS
+0033   2???           00143     CALL send
+0034   2???           00144     CALL print_dividend_msg
+                      00145 
+0035   2???           00146     CALL display_number_A_decimal
+0036   2???           00147     CALL delay_2s
+                      00148 
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00149 ; ============= DISPLAY DIVISOR =============
+0037                  00150 display_divisor:
+0037   3001           00151     MOVLW 0x01
+0038   10F4           00152     BCF Select, RS
+0039   2???           00153     CALL send
+                      00154     
+003A   3080           00155     MOVLW 0x80         ; Line 1
+003B   10F4           00156     BCF Select, RS
+003C   2???           00157     CALL send
+003D   2???           00158     CALL print_divisor_msg
+                      00159 
+003E   2???           00160     CALL display_number_B_decimal
+003F   2???           00161     CALL delay_2s
+                      00162 
+                      00163 ; ============= LONG DIVISION WITH DECIMAL PRECISION =============
+0040                  00164 perform_long_division:
+                      00165     ; Step 1: Check for division by zero
+0040   2???           00166     CALL check_division_by_zero
+0041   185C           00167     BTFSC DivByZero, 0
+0042   2???           00168     GOTO show_division_error
+                      00169 
+                      00170     ; Step 2: Initialize result to 0
+0043   2???           00171     CALL clear_result
+                      00172     
+                      00173     ; Step 3: Copy dividend (A) to working area (Work_A)
+0044   2???           00174     CALL copy_dividend_to_work_area
+                      00175 
+                      00176     ; Step 4: Perform integer division first (get integer part of quotient)
+0045   2???           00177     CALL integer_division
+                      00178 
+                      00179     ; Step 5: Now work_A contains the remainder, perform fractional division
+0046   2???           00180     CALL fractional_division
+                      00181 
+                      00182     ; Step 6: Display the final result
+0047   2???           00183     GOTO display_final_result
+                      00184 
+                      00185 ; ============= INTEGER DIVISION (FIRST STEP) =============
+0048                  00186 integer_division:
+                      00187     ; Count how many times divisor goes into dividend (integer part)
+0048   01D5           00188     CLRF Result6        ; Start counting from the ones place (Result6)
+                      00189     
+0049                  00190 integer_loop:
+                      00191     ; Compare Work_A with divisor (B)
+0049   2???           00192     CALL compare_work_with_divisor
+                      00193     
+                      00194     ; If Work_A < B, integer division is complete
+004A   185D           00195     BTFSC CompareFlag, 0
+004B   0008           00196     RETURN
+                      00197     
+                      00198     ; If Work_A >= B, subtract B from Work_A
+004C   2???           00199     CALL subtract_b_from_work
+                      00200     
+                      00201     ; Increment the ones place of result (Result6)
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+004D   2???           00202     CALL increment_result_integer
+                      00203     
+                      00204     ; Continue loop
+004E   2???           00205     GOTO integer_loop
+                      00206 
+                      00207 ; ============= FRACTIONAL DIVISION =============
+004F                  00208 fractional_division:
+                      00209     ; Initialize fractional step counter
+004F   01DE           00210     CLRF FractionStep
+                      00211     
+0050                  00212 fractional_loop:
+                      00213     ; Check if we've calculated all 6 fractional digits
+0050   085E           00214     MOVF FractionStep, W
+0051   3C05           00215     SUBLW D'5'              ; Compare with 5 (0-5 = 6 digits)
+0052   1C03           00216     BTFSS STATUS, C         ; If FractionStep > 5, we're done
+0053   0008           00217     RETURN
+                      00218     
+                      00219     ; Step 1: Shift remainder left by one position (multiply by 10)
+0054   2???           00220     CALL shift_remainder_left_one_position
+                      00221     
+                      00222     ; Step 2: Divide the shifted value by divisor
+0055   01A0           00223     CLRF Temp              ; Use Temp as single digit counter
+                      00224     
+0056                  00225 fractional_digit_loop:
+                      00226     ; Compare Work_A with divisor (B)
+0056   2???           00227     CALL compare_work_with_divisor
+                      00228     
+                      00229     ; If Work_A < B, this digit is complete
+0057   185D           00230     BTFSC CompareFlag, 0
+0058   2???           00231     GOTO store_fractional_digit
+                      00232     
+                      00233     ; If Work_A >= B, subtract B from Work_A
+0059   2???           00234     CALL subtract_b_from_work
+                      00235     
+                      00236     ; Increment digit counter
+005A   0AA0           00237     INCF Temp, F
+                      00238     
+                      00239     ; Continue loop (max 9 iterations for single digit)
+005B   0820           00240     MOVF Temp, W
+005C   3C09           00241     SUBLW D'9'
+005D   1803           00242     BTFSC STATUS, C
+005E   2???           00243     GOTO fractional_digit_loop
+                      00244 
+005F                  00245 store_fractional_digit:
+                      00246     ; Store the digit in appropriate fractional position
+005F   2???           00247     CALL store_fractional_result
+                      00248     
+                      00249     ; Move to next fractional digit
+0060   0ADE           00250     INCF FractionStep, F
+0061   2???           00251     GOTO fractional_loop
+                      00252 
+                      00253 ; ============= SHIFT FUNCTION =============
+Warning[208]: Label truncated at 32 characters. (shift_remainder_left_one_position)
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0062                  00254 shift_remainder_left_one_position:
+                      00255     ; SHIFT all digits LEFT by one position (multiply by 10)
+                      00256     ; Example: 000001000000 ? 000010000000
+                      00257     ; Must shift from LEFT to RIGHT to avoid overwriting
+                      00258     ; Move each digit ONE POSITION TO THE LEFT (towards more significant)
+                      00259     
+                      00260     ; Start from the leftmost and move right
+0062   0841           00261     MOVF Work_A2, W         ; Save A2
+0063   00C0           00262     MOVWF Work_A1           ; A2 ? A1 (A2 moves left to A1)
+                      00263     
+0064   0842           00264     MOVF Work_A3, W         ; Save A3
+0065   00C1           00265     MOVWF Work_A2           ; A3 ? A2 (A3 moves left to A2)
+                      00266     
+0066   0843           00267     MOVF Work_A4, W         ; Save A4
+0067   00C2           00268     MOVWF Work_A3           ; A4 ? A3 (A4 moves left to A3)
+                      00269     
+0068   0844           00270     MOVF Work_A5, W         ; Save A5
+0069   00C3           00271     MOVWF Work_A4           ; A5 ? A4 (A5 moves left to A4)
+                      00272     
+006A   0845           00273     MOVF Work_A6, W         ; Save A6
+006B   00C4           00274     MOVWF Work_A5           ; A6 ? A5 (A6 moves left to A5)
+                      00275     
+006C   0846           00276     MOVF Work_A7, W         ; Save A7
+006D   00C5           00277     MOVWF Work_A6           ; A7 ? A6 (A7 moves left to A6)
+                      00278     
+006E   0847           00279     MOVF Work_A8, W         ; Save A8
+006F   00C6           00280     MOVWF Work_A7           ; A8 ? A7 (A8 moves left to A7)
+                      00281     
+0070   0848           00282     MOVF Work_A9, W         ; Save A9
+0071   00C7           00283     MOVWF Work_A8           ; A9 ? A8 (A9 moves left to A8)
+                      00284     
+0072   0849           00285     MOVF Work_A10, W        ; Save A10
+0073   00C8           00286     MOVWF Work_A9           ; A10 ? A9 (A10 moves left to A9)
+                      00287     
+0074   084A           00288     MOVF Work_A11, W        ; Save A11
+0075   00C9           00289     MOVWF Work_A10          ; A11 ? A10 (A11 moves left to A10)
+                      00290     
+0076   084B           00291     MOVF Work_A12, W        ; Save A12
+0077   00CA           00292     MOVWF Work_A11          ; A12 ? A11 (A12 moves left to A11)
+                      00293     
+                      00294     ; Clear the least significant digit (A12 becomes 0)
+0078   01CB           00295     CLRF Work_A12
+                      00296     
+0079   0008           00297     RETURN
+                      00298 
+                      00299 ; ============= FIXED STORE FRACTIONAL RESULT =============
+007A                  00300 store_fractional_result:
+                      00301     ; FIXED: Use explicit conditionals instead of jump table
+                      00302     ; Store Temp digit in the appropriate fractional position
+                      00303     ; FractionStep: 0=Result7, 1=Result8, ..., 5=Result12
+                      00304     
+007A   085E           00305     MOVF FractionStep, W
+007B   3C00           00306     SUBLW D'0'              ; Check if FractionStep == 0
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+007C   1903           00307     BTFSC STATUS, Z
+007D   2???           00308     GOTO store_frac_0
+                      00309     
+007E   085E           00310     MOVF FractionStep, W
+007F   3C01           00311     SUBLW D'1'              ; Check if FractionStep == 1
+0080   1903           00312     BTFSC STATUS, Z
+0081   2???           00313     GOTO store_frac_1
+                      00314     
+0082   085E           00315     MOVF FractionStep, W
+0083   3C02           00316     SUBLW D'2'              ; Check if FractionStep == 2
+0084   1903           00317     BTFSC STATUS, Z
+0085   2???           00318     GOTO store_frac_2
+                      00319     
+0086   085E           00320     MOVF FractionStep, W
+0087   3C03           00321     SUBLW D'3'              ; Check if FractionStep == 3
+0088   1903           00322     BTFSC STATUS, Z
+0089   2???           00323     GOTO store_frac_3
+                      00324     
+008A   085E           00325     MOVF FractionStep, W
+008B   3C04           00326     SUBLW D'4'              ; Check if FractionStep == 4
+008C   1903           00327     BTFSC STATUS, Z
+008D   2???           00328     GOTO store_frac_4
+                      00329     
+008E   085E           00330     MOVF FractionStep, W
+008F   3C05           00331     SUBLW D'5'              ; Check if FractionStep == 5
+0090   1903           00332     BTFSC STATUS, Z
+0091   2???           00333     GOTO store_frac_5
+                      00334     
+                      00335     ; If we get here, something went wrong
+0092   0008           00336     RETURN
+                      00337 
+0093                  00338 store_frac_0:
+0093   0820           00339     MOVF Temp, W
+0094   00D6           00340     MOVWF Result7
+0095   0008           00341     RETURN
+                      00342 
+0096                  00343 store_frac_1:
+0096   0820           00344     MOVF Temp, W
+0097   00D7           00345     MOVWF Result8
+0098   0008           00346     RETURN
+                      00347 
+0099                  00348 store_frac_2:
+0099   0820           00349     MOVF Temp, W
+009A   00D8           00350     MOVWF Result9
+009B   0008           00351     RETURN
+                      00352 
+009C                  00353 store_frac_3:
+009C   0820           00354     MOVF Temp, W
+009D   00D9           00355     MOVWF Result10
+009E   0008           00356     RETURN
+                      00357 
+009F                  00358 store_frac_4:
+009F   0820           00359     MOVF Temp, W
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00A0   00DA           00360     MOVWF Result11
+00A1   0008           00361     RETURN
+                      00362 
+00A2                  00363 store_frac_5:
+00A2   0820           00364     MOVF Temp, W
+00A3   00DB           00365     MOVWF Result12
+00A4   0008           00366     RETURN
+                      00367 
+                      00368 ; ============= SUPPORT FUNCTIONS =============
+                      00369 
+00A5                  00370 check_division_by_zero:
+00A5   01DC           00371     CLRF DivByZero
+                      00372     
+                      00373     ; Check if all digits of B are zero
+00A6   0830           00374     MOVF B_Digit1, W
+00A7   0431           00375     IORWF B_Digit2, W
+00A8   0432           00376     IORWF B_Digit3, W
+00A9   0433           00377     IORWF B_Digit4, W
+00AA   0434           00378     IORWF B_Digit5, W
+00AB   0435           00379     IORWF B_Digit6, W
+00AC   0436           00380     IORWF B_Digit7, W
+00AD   0437           00381     IORWF B_Digit8, W
+00AE   0438           00382     IORWF B_Digit9, W
+00AF   0439           00383     IORWF B_Digit10, W
+00B0   043A           00384     IORWF B_Digit11, W
+00B1   043B           00385     IORWF B_Digit12, W
+                      00386     
+00B2   1903           00387     BTFSC STATUS, Z
+00B3   145C           00388     BSF DivByZero, 0
+00B4   0008           00389     RETURN
+                      00390 
+00B5                  00391 clear_result:
+00B5   01D0           00392     CLRF Result1
+00B6   01D1           00393     CLRF Result2
+00B7   01D2           00394     CLRF Result3
+00B8   01D3           00395     CLRF Result4
+00B9   01D4           00396     CLRF Result5
+00BA   01D5           00397     CLRF Result6
+00BB   01D6           00398     CLRF Result7
+00BC   01D7           00399     CLRF Result8
+00BD   01D8           00400     CLRF Result9
+00BE   01D9           00401     CLRF Result10
+00BF   01DA           00402     CLRF Result11
+00C0   01DB           00403     CLRF Result12
+00C1   0008           00404     RETURN
+                      00405 
+00C2                  00406 copy_dividend_to_work_area:
+00C2   0824           00407     MOVF A_Digit1, W
+00C3   00C0           00408     MOVWF Work_A1
+00C4   0825           00409     MOVF A_Digit2, W
+00C5   00C1           00410     MOVWF Work_A2
+00C6   0826           00411     MOVF A_Digit3, W
+00C7   00C2           00412     MOVWF Work_A3
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00C8   0827           00413     MOVF A_Digit4, W
+00C9   00C3           00414     MOVWF Work_A4
+00CA   0828           00415     MOVF A_Digit5, W
+00CB   00C4           00416     MOVWF Work_A5
+00CC   0829           00417     MOVF A_Digit6, W
+00CD   00C5           00418     MOVWF Work_A6
+00CE   082A           00419     MOVF A_Digit7, W
+00CF   00C6           00420     MOVWF Work_A7
+00D0   082B           00421     MOVF A_Digit8, W
+00D1   00C7           00422     MOVWF Work_A8
+00D2   082C           00423     MOVF A_Digit9, W
+00D3   00C8           00424     MOVWF Work_A9
+00D4   082D           00425     MOVF A_Digit10, W
+00D5   00C9           00426     MOVWF Work_A10
+00D6   082E           00427     MOVF A_Digit11, W
+00D7   00CA           00428     MOVWF Work_A11
+00D8   082F           00429     MOVF A_Digit12, W
+00D9   00CB           00430     MOVWF Work_A12
+00DA   0008           00431     RETURN
+                      00432 
+00DB                  00433 compare_work_with_divisor:
+                      00434     ; Compare Work_A with B to determine if Work_A < B
+00DB   01DD           00435     CLRF CompareFlag
+                      00436     
+                      00437     ; Compare from most significant digit
+00DC   0830           00438     MOVF B_Digit1, W
+00DD   0240           00439     SUBWF Work_A1, W
+00DE   1D03           00440     BTFSS STATUS, Z
+00DF   2???           00441     GOTO check_comparison_result
+                      00442     
+00E0   0831           00443     MOVF B_Digit2, W
+00E1   0241           00444     SUBWF Work_A2, W
+00E2   1D03           00445     BTFSS STATUS, Z
+00E3   2???           00446     GOTO check_comparison_result
+                      00447     
+00E4   0832           00448     MOVF B_Digit3, W
+00E5   0242           00449     SUBWF Work_A3, W
+00E6   1D03           00450     BTFSS STATUS, Z
+00E7   2???           00451     GOTO check_comparison_result
+                      00452     
+00E8   0833           00453     MOVF B_Digit4, W
+00E9   0243           00454     SUBWF Work_A4, W
+00EA   1D03           00455     BTFSS STATUS, Z
+00EB   2???           00456     GOTO check_comparison_result
+                      00457     
+00EC   0834           00458     MOVF B_Digit5, W
+00ED   0244           00459     SUBWF Work_A5, W
+00EE   1D03           00460     BTFSS STATUS, Z
+00EF   2???           00461     GOTO check_comparison_result
+                      00462     
+00F0   0835           00463     MOVF B_Digit6, W
+00F1   0245           00464     SUBWF Work_A6, W
+00F2   1D03           00465     BTFSS STATUS, Z
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00F3   2???           00466     GOTO check_comparison_result
+                      00467     
+00F4   0836           00468     MOVF B_Digit7, W
+00F5   0246           00469     SUBWF Work_A7, W
+00F6   1D03           00470     BTFSS STATUS, Z
+00F7   2???           00471     GOTO check_comparison_result
+                      00472     
+00F8   0837           00473     MOVF B_Digit8, W
+00F9   0247           00474     SUBWF Work_A8, W
+00FA   1D03           00475     BTFSS STATUS, Z
+00FB   2???           00476     GOTO check_comparison_result
+                      00477     
+00FC   0838           00478     MOVF B_Digit9, W
+00FD   0248           00479     SUBWF Work_A9, W
+00FE   1D03           00480     BTFSS STATUS, Z
+00FF   2???           00481     GOTO check_comparison_result
+                      00482     
+0100   0839           00483     MOVF B_Digit10, W
+0101   0249           00484     SUBWF Work_A10, W
+0102   1D03           00485     BTFSS STATUS, Z
+0103   2???           00486     GOTO check_comparison_result
+                      00487     
+0104   083A           00488     MOVF B_Digit11, W
+0105   024A           00489     SUBWF Work_A11, W
+0106   1D03           00490     BTFSS STATUS, Z
+0107   2???           00491     GOTO check_comparison_result
+                      00492     
+0108   083B           00493     MOVF B_Digit12, W
+0109   024B           00494     SUBWF Work_A12, W
+                      00495 
+010A                  00496 check_comparison_result:
+                      00497     ; If carry is clear (C=0), then Work_A < B
+010A   1C03           00498     BTFSS STATUS, C
+010B   145D           00499     BSF CompareFlag, 0
+010C   0008           00500     RETURN
+                      00501 
+010D                  00502 subtract_b_from_work:
+                      00503     ; Perform Work_A = Work_A - B with borrowing
+                      00504     ; Start from least significant digit
+                      00505     
+                      00506     ; Digit 12 (least significant)
+010D   083B           00507     MOVF B_Digit12, W
+010E   02CB           00508     SUBWF Work_A12, F
+010F   1803           00509     BTFSC STATUS, C
+0110   2???           00510     GOTO continue_sub11
+                      00511     
+                      00512     ; Need to borrow
+0111   300A           00513     MOVLW D'10'
+0112   07CB           00514     ADDWF Work_A12, F
+0113   2???           00515     CALL borrow_from_left11
+                      00516 
+0114                  00517 continue_sub11:
+0114   083A           00518     MOVF B_Digit11, W
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0115   02CA           00519     SUBWF Work_A11, F
+0116   1803           00520     BTFSC STATUS, C
+0117   2???           00521     GOTO continue_sub10
+                      00522     
+0118   300A           00523     MOVLW D'10'
+0119   07CA           00524     ADDWF Work_A11, F
+011A   2???           00525     CALL borrow_from_left10
+                      00526 
+011B                  00527 continue_sub10:
+011B   0839           00528     MOVF B_Digit10, W
+011C   02C9           00529     SUBWF Work_A10, F
+011D   1803           00530     BTFSC STATUS, C
+011E   2???           00531     GOTO continue_sub9
+                      00532     
+011F   300A           00533     MOVLW D'10'
+0120   07C9           00534     ADDWF Work_A10, F
+0121   2???           00535     CALL borrow_from_left9
+                      00536 
+0122                  00537 continue_sub9:
+0122   0838           00538     MOVF B_Digit9, W
+0123   02C8           00539     SUBWF Work_A9, F
+0124   1803           00540     BTFSC STATUS, C
+0125   2???           00541     GOTO continue_sub8
+                      00542     
+0126   300A           00543     MOVLW D'10'
+0127   07C8           00544     ADDWF Work_A9, F
+0128   2???           00545     CALL borrow_from_left8
+                      00546 
+0129                  00547 continue_sub8:
+0129   0837           00548     MOVF B_Digit8, W
+012A   02C7           00549     SUBWF Work_A8, F
+012B   1803           00550     BTFSC STATUS, C
+012C   2???           00551     GOTO continue_sub7
+                      00552     
+012D   300A           00553     MOVLW D'10'
+012E   07C7           00554     ADDWF Work_A8, F
+012F   2???           00555     CALL borrow_from_left7
+                      00556 
+0130                  00557 continue_sub7:
+0130   0836           00558     MOVF B_Digit7, W
+0131   02C6           00559     SUBWF Work_A7, F
+0132   1803           00560     BTFSC STATUS, C
+0133   2???           00561     GOTO continue_sub6
+                      00562     
+0134   300A           00563     MOVLW D'10'
+0135   07C6           00564     ADDWF Work_A7, F
+0136   2???           00565     CALL borrow_from_left6
+                      00566 
+0137                  00567 continue_sub6:
+0137   0835           00568     MOVF B_Digit6, W
+0138   02C5           00569     SUBWF Work_A6, F
+0139   1803           00570     BTFSC STATUS, C
+013A   2???           00571     GOTO continue_sub5
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00572     
+013B   300A           00573     MOVLW D'10'
+013C   07C5           00574     ADDWF Work_A6, F
+013D   2???           00575     CALL borrow_from_left5
+                      00576 
+013E                  00577 continue_sub5:
+013E   0834           00578     MOVF B_Digit5, W
+013F   02C4           00579     SUBWF Work_A5, F
+0140   1803           00580     BTFSC STATUS, C
+0141   2???           00581     GOTO continue_sub4
+                      00582     
+0142   300A           00583     MOVLW D'10'
+0143   07C4           00584     ADDWF Work_A5, F
+0144   2???           00585     CALL borrow_from_left4
+                      00586 
+0145                  00587 continue_sub4:
+0145   0833           00588     MOVF B_Digit4, W
+0146   02C3           00589     SUBWF Work_A4, F
+0147   1803           00590     BTFSC STATUS, C
+0148   2???           00591     GOTO continue_sub3
+                      00592     
+0149   300A           00593     MOVLW D'10'
+014A   07C3           00594     ADDWF Work_A4, F
+014B   2???           00595     CALL borrow_from_left3
+                      00596 
+014C                  00597 continue_sub3:
+014C   0832           00598     MOVF B_Digit3, W
+014D   02C2           00599     SUBWF Work_A3, F
+014E   1803           00600     BTFSC STATUS, C
+014F   2???           00601     GOTO continue_sub2
+                      00602     
+0150   300A           00603     MOVLW D'10'
+0151   07C2           00604     ADDWF Work_A3, F
+0152   2???           00605     CALL borrow_from_left2
+                      00606 
+0153                  00607 continue_sub2:
+0153   0831           00608     MOVF B_Digit2, W
+0154   02C1           00609     SUBWF Work_A2, F
+0155   1803           00610     BTFSC STATUS, C
+0156   2???           00611     GOTO continue_sub1
+                      00612     
+0157   300A           00613     MOVLW D'10'
+0158   07C1           00614     ADDWF Work_A2, F
+0159   03C0           00615     DECF Work_A1, F
+                      00616 
+015A                  00617 continue_sub1:
+015A   0830           00618     MOVF B_Digit1, W
+015B   02C0           00619     SUBWF Work_A1, F
+015C   0008           00620     RETURN
+                      00621 
+                      00622 ; Borrowing functions (unchanged from previous version)
+015D                  00623 borrow_from_left11:
+015D   08CA           00624     MOVF Work_A11, F
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+015E   1D03           00625     BTFSS STATUS, Z
+015F   2???           00626     GOTO dec_11
+0160   3009           00627     MOVLW D'9'
+0161   00CA           00628     MOVWF Work_A11
+0162   2???           00629     CALL borrow_from_left10
+0163   0008           00630     RETURN
+0164                  00631 dec_11:
+0164   03CA           00632     DECF Work_A11, F
+0165   0008           00633     RETURN
+                      00634 
+0166                  00635 borrow_from_left10:
+0166   08C9           00636     MOVF Work_A10, F
+0167   1D03           00637     BTFSS STATUS, Z
+0168   2???           00638     GOTO dec_10
+0169   3009           00639     MOVLW D'9'
+016A   00C9           00640     MOVWF Work_A10
+016B   2???           00641     CALL borrow_from_left9
+016C   0008           00642     RETURN
+016D                  00643 dec_10:
+016D   03C9           00644     DECF Work_A10, F
+016E   0008           00645     RETURN
+                      00646 
+016F                  00647 borrow_from_left9:
+016F   08C8           00648     MOVF Work_A9, F
+0170   1D03           00649     BTFSS STATUS, Z
+0171   2???           00650     GOTO dec_9
+0172   3009           00651     MOVLW D'9'
+0173   00C8           00652     MOVWF Work_A9
+0174   2???           00653     CALL borrow_from_left8
+0175   0008           00654     RETURN
+0176                  00655 dec_9:
+0176   03C8           00656     DECF Work_A9, F
+0177   0008           00657     RETURN
+                      00658 
+0178                  00659 borrow_from_left8:
+0178   08C7           00660     MOVF Work_A8, F
+0179   1D03           00661     BTFSS STATUS, Z
+017A   2???           00662     GOTO dec_8
+017B   3009           00663     MOVLW D'9'
+017C   00C7           00664     MOVWF Work_A8
+017D   2???           00665     CALL borrow_from_left7
+017E   0008           00666     RETURN
+017F                  00667 dec_8:
+017F   03C7           00668     DECF Work_A8, F
+0180   0008           00669     RETURN
+                      00670 
+0181                  00671 borrow_from_left7:
+0181   08C6           00672     MOVF Work_A7, F
+0182   1D03           00673     BTFSS STATUS, Z
+0183   2???           00674     GOTO dec_7
+0184   3009           00675     MOVLW D'9'
+0185   00C6           00676     MOVWF Work_A7
+0186   2???           00677     CALL borrow_from_left6
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0187   0008           00678     RETURN
+0188                  00679 dec_7:
+0188   03C6           00680     DECF Work_A7, F
+0189   0008           00681     RETURN
+                      00682 
+018A                  00683 borrow_from_left6:
+018A   08C5           00684     MOVF Work_A6, F
+018B   1D03           00685     BTFSS STATUS, Z
+018C   2???           00686     GOTO dec_6
+018D   3009           00687     MOVLW D'9'
+018E   00C5           00688     MOVWF Work_A6
+018F   2???           00689     CALL borrow_from_left5
+0190   0008           00690     RETURN
+0191                  00691 dec_6:
+0191   03C5           00692     DECF Work_A6, F
+0192   0008           00693     RETURN
+                      00694 
+0193                  00695 borrow_from_left5:
+0193   08C4           00696     MOVF Work_A5, F
+0194   1D03           00697     BTFSS STATUS, Z
+0195   2???           00698     GOTO dec_5
+0196   3009           00699     MOVLW D'9'
+0197   00C4           00700     MOVWF Work_A5
+0198   2???           00701     CALL borrow_from_left4
+0199   0008           00702     RETURN
+019A                  00703 dec_5:
+019A   03C4           00704     DECF Work_A5, F
+019B   0008           00705     RETURN
+                      00706 
+019C                  00707 borrow_from_left4:
+019C   08C3           00708     MOVF Work_A4, F
+019D   1D03           00709     BTFSS STATUS, Z
+019E   2???           00710     GOTO dec_4
+019F   3009           00711     MOVLW D'9'
+01A0   00C3           00712     MOVWF Work_A4
+01A1   2???           00713     CALL borrow_from_left3
+01A2   0008           00714     RETURN
+01A3                  00715 dec_4:
+01A3   03C3           00716     DECF Work_A4, F
+01A4   0008           00717     RETURN
+                      00718 
+01A5                  00719 borrow_from_left3:
+01A5   08C2           00720     MOVF Work_A3, F
+01A6   1D03           00721     BTFSS STATUS, Z
+01A7   2???           00722     GOTO dec_3
+01A8   3009           00723     MOVLW D'9'
+01A9   00C2           00724     MOVWF Work_A3
+01AA   2???           00725     CALL borrow_from_left2
+01AB   0008           00726     RETURN
+01AC                  00727 dec_3:
+01AC   03C2           00728     DECF Work_A3, F
+01AD   0008           00729     RETURN
+                      00730 
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01AE                  00731 borrow_from_left2:
+01AE   08C1           00732     MOVF Work_A2, F
+01AF   1D03           00733     BTFSS STATUS, Z
+01B0   2???           00734     GOTO dec_2
+01B1   3009           00735     MOVLW D'9'
+01B2   00C1           00736     MOVWF Work_A2
+01B3   03C0           00737     DECF Work_A1, F
+01B4   0008           00738     RETURN
+01B5                  00739 dec_2:
+01B5   03C1           00740     DECF Work_A2, F
+01B6   0008           00741     RETURN
+                      00742 
+01B7                  00743 increment_result_integer:
+                      00744     ; Increment Result6 (ones place) with carry propagation
+01B7   0AD5           00745     INCF Result6, F
+01B8   0855           00746     MOVF Result6, W
+01B9   3C0A           00747     SUBLW D'10'
+01BA   1D03           00748     BTFSS STATUS, Z
+01BB   0008           00749     RETURN
+                      00750     
+01BC   01D5           00751     CLRF Result6
+01BD   0AD4           00752     INCF Result5, F
+01BE   0854           00753     MOVF Result5, W
+01BF   3C0A           00754     SUBLW D'10'
+01C0   1D03           00755     BTFSS STATUS, Z
+01C1   0008           00756     RETURN
+                      00757     
+01C2   01D4           00758     CLRF Result5
+01C3   0AD3           00759     INCF Result4, F
+01C4   0853           00760     MOVF Result4, W
+01C5   3C0A           00761     SUBLW D'10'
+01C6   1D03           00762     BTFSS STATUS, Z
+01C7   0008           00763     RETURN
+                      00764     
+01C8   01D3           00765     CLRF Result4
+01C9   0AD2           00766     INCF Result3, F
+01CA   0852           00767     MOVF Result3, W
+01CB   3C0A           00768     SUBLW D'10'
+01CC   1D03           00769     BTFSS STATUS, Z
+01CD   0008           00770     RETURN
+                      00771     
+01CE   01D2           00772     CLRF Result3
+01CF   0AD1           00773     INCF Result2, F
+01D0   0851           00774     MOVF Result2, W
+01D1   3C0A           00775     SUBLW D'10'
+01D2   1D03           00776     BTFSS STATUS, Z
+01D3   0008           00777     RETURN
+                      00778     
+01D4   01D1           00779     CLRF Result2
+01D5   0AD0           00780     INCF Result1, F
+01D6   0008           00781     RETURN
+                      00782 
+01D7                  00783 display_final_result:
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01D7   3001           00784     MOVLW 0x01
+01D8   10F4           00785     BCF Select, RS
+01D9   2???           00786     CALL send
+                      00787     
+01DA   3080           00788     MOVLW 0x80         ; Line 1
+01DB   10F4           00789     BCF Select, RS
+01DC   2???           00790     CALL send
+01DD   2???           00791     CALL print_result_msg
+                      00792     
+01DE   30C0           00793     MOVLW 0xC0         ; Line 2
+01DF   10F4           00794     BCF Select, RS
+01E0   2???           00795     CALL send
+01E1   2???           00796     CALL display_result_decimal
+                      00797 
+01E2   2???           00798     CALL delay_3s
+01E3   2???           00799     GOTO end_program
+                      00800 
+01E4                  00801 show_division_error:
+01E4   3001           00802     MOVLW 0x01
+01E5   10F4           00803     BCF Select, RS
+01E6   2???           00804     CALL send
+                      00805     
+01E7   3080           00806     MOVLW 0x80
+01E8   10F4           00807     BCF Select, RS
+01E9   2???           00808     CALL send
+01EA   2???           00809     CALL print_error_msg
+                      00810 
+01EB                  00811 end_program:
+01EB   2???           00812     GOTO $
+                      00813 
+                      00814 ; ============= DISPLAY ROUTINES =============
+                      00815 
+01EC                  00816 display_number_A_decimal:
+01EC   30C0           00817     MOVLW 0xC0         ; Line 2
+01ED   10F4           00818     BCF Select, RS
+01EE   2???           00819     CALL send
+01EF   14F4           00820     BSF Select, RS
+                      00821     
+                      00822     ; Display first 6 digits (integer part)
+01F0   0824           00823     MOVF A_Digit1, W
+01F1   3E30           00824     ADDLW '0'
+01F2   2???           00825     CALL send
+01F3   0825           00826     MOVF A_Digit2, W
+01F4   3E30           00827     ADDLW '0'
+01F5   2???           00828     CALL send
+01F6   0826           00829     MOVF A_Digit3, W
+01F7   3E30           00830     ADDLW '0'
+01F8   2???           00831     CALL send
+01F9   0827           00832     MOVF A_Digit4, W
+01FA   3E30           00833     ADDLW '0'
+01FB   2???           00834     CALL send
+01FC   0828           00835     MOVF A_Digit5, W
+01FD   3E30           00836     ADDLW '0'
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01FE   2???           00837     CALL send
+01FF   0829           00838     MOVF A_Digit6, W
+0200   3E30           00839     ADDLW '0'
+0201   2???           00840     CALL send
+                      00841     
+                      00842     ; Display decimal point
+0202   302E           00843     MOVLW '.'
+0203   2???           00844     CALL send
+                      00845     
+                      00846     ; Display last 6 digits (decimal part)
+0204   082A           00847     MOVF A_Digit7, W
+0205   3E30           00848     ADDLW '0'
+0206   2???           00849     CALL send
+0207   082B           00850     MOVF A_Digit8, W
+0208   3E30           00851     ADDLW '0'
+0209   2???           00852     CALL send
+020A   082C           00853     MOVF A_Digit9, W
+020B   3E30           00854     ADDLW '0'
+020C   2???           00855     CALL send
+020D   082D           00856     MOVF A_Digit10, W
+020E   3E30           00857     ADDLW '0'
+020F   2???           00858     CALL send
+0210   082E           00859     MOVF A_Digit11, W
+0211   3E30           00860     ADDLW '0'
+0212   2???           00861     CALL send
+0213   082F           00862     MOVF A_Digit12, W
+0214   3E30           00863     ADDLW '0'
+0215   2???           00864     CALL send
+0216   0008           00865     RETURN
+                      00866 
+0217                  00867 display_number_B_decimal:
+0217   30C0           00868     MOVLW 0xC0         ; Line 2
+0218   10F4           00869     BCF Select, RS
+0219   2???           00870     CALL send
+021A   14F4           00871     BSF Select, RS
+                      00872     
+                      00873     ; Display first 6 digits (integer part)
+021B   0830           00874     MOVF B_Digit1, W
+021C   3E30           00875     ADDLW '0'
+021D   2???           00876     CALL send
+021E   0831           00877     MOVF B_Digit2, W
+021F   3E30           00878     ADDLW '0'
+0220   2???           00879     CALL send
+0221   0832           00880     MOVF B_Digit3, W
+0222   3E30           00881     ADDLW '0'
+0223   2???           00882     CALL send
+0224   0833           00883     MOVF B_Digit4, W
+0225   3E30           00884     ADDLW '0'
+0226   2???           00885     CALL send
+0227   0834           00886     MOVF B_Digit5, W
+0228   3E30           00887     ADDLW '0'
+0229   2???           00888     CALL send
+022A   0835           00889     MOVF B_Digit6, W
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 18
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+022B   3E30           00890     ADDLW '0'
+022C   2???           00891     CALL send
+                      00892     
+                      00893     ; Display decimal point
+022D   302E           00894     MOVLW '.'
+022E   2???           00895     CALL send
+                      00896     
+                      00897     ; Display last 6 digits (decimal part)
+022F   0836           00898     MOVF B_Digit7, W
+0230   3E30           00899     ADDLW '0'
+0231   2???           00900     CALL send
+0232   0837           00901     MOVF B_Digit8, W
+0233   3E30           00902     ADDLW '0'
+0234   2???           00903     CALL send
+0235   0838           00904     MOVF B_Digit9, W
+0236   3E30           00905     ADDLW '0'
+0237   2???           00906     CALL send
+0238   0839           00907     MOVF B_Digit10, W
+0239   3E30           00908     ADDLW '0'
+023A   2???           00909     CALL send
+023B   083A           00910     MOVF B_Digit11, W
+023C   3E30           00911     ADDLW '0'
+023D   2???           00912     CALL send
+023E   083B           00913     MOVF B_Digit12, W
+023F   3E30           00914     ADDLW '0'
+0240   2???           00915     CALL send
+0241   0008           00916     RETURN
+                      00917 
+0242                  00918 display_result_decimal:
+0242   14F4           00919     BSF Select, RS
+                      00920     
+                      00921     ; Display first 6 digits (integer part)
+0243   0850           00922     MOVF Result1, W
+0244   3E30           00923     ADDLW '0'
+0245   2???           00924     CALL send
+0246   0851           00925     MOVF Result2, W
+0247   3E30           00926     ADDLW '0'
+0248   2???           00927     CALL send
+0249   0852           00928     MOVF Result3, W
+024A   3E30           00929     ADDLW '0'
+024B   2???           00930     CALL send
+024C   0853           00931     MOVF Result4, W
+024D   3E30           00932     ADDLW '0'
+024E   2???           00933     CALL send
+024F   0854           00934     MOVF Result5, W
+0250   3E30           00935     ADDLW '0'
+0251   2???           00936     CALL send
+0252   0855           00937     MOVF Result6, W
+0253   3E30           00938     ADDLW '0'
+0254   2???           00939     CALL send
+                      00940     
+                      00941     ; Display decimal point
+0255   302E           00942     MOVLW '.'
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 19
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0256   2???           00943     CALL send
+                      00944     
+                      00945     ; Display fractional part
+0257   0856           00946     MOVF Result7, W
+0258   3E30           00947     ADDLW '0'
+0259   2???           00948     CALL send
+025A   0857           00949     MOVF Result8, W
+025B   3E30           00950     ADDLW '0'
+025C   2???           00951     CALL send
+025D   0858           00952     MOVF Result9, W
+025E   3E30           00953     ADDLW '0'
+025F   2???           00954     CALL send
+0260   0859           00955     MOVF Result10, W
+0261   3E30           00956     ADDLW '0'
+0262   2???           00957     CALL send
+0263   085A           00958     MOVF Result11, W
+0264   3E30           00959     ADDLW '0'
+0265   2???           00960     CALL send
+0266   085B           00961     MOVF Result12, W
+0267   3E30           00962     ADDLW '0'
+0268   2???           00963     CALL send
+0269   0008           00964     RETURN
+                      00965 
+                      00966 ; ============= TEXT MESSAGES =============
+026A                  00967 print_division_msg:
+026A   14F4           00968     BSF Select, RS
+026B   304C           00969     MOVLW 'L'
+026C   2???           00970     CALL send
+026D   304F           00971     MOVLW 'O'
+026E   2???           00972     CALL send
+026F   304E           00973     MOVLW 'N'
+0270   2???           00974     CALL send
+0271   3047           00975     MOVLW 'G'
+0272   2???           00976     CALL send
+0273   3020           00977     MOVLW ' '
+0274   2???           00978     CALL send
+0275   3044           00979     MOVLW 'D'
+0276   2???           00980     CALL send
+0277   3049           00981     MOVLW 'I'
+0278   2???           00982     CALL send
+0279   3056           00983     MOVLW 'V'
+027A   2???           00984     CALL send
+027B   3049           00985     MOVLW 'I'
+027C   2???           00986     CALL send
+027D   3053           00987     MOVLW 'S'
+027E   2???           00988     CALL send
+027F   3049           00989     MOVLW 'I'
+0280   2???           00990     CALL send
+0281   304F           00991     MOVLW 'O'
+0282   2???           00992     CALL send
+0283   304E           00993     MOVLW 'N'
+0284   2???           00994     CALL send
+0285   0008           00995     RETURN
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 20
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00996 
+0286                  00997 print_dividend_msg:
+0286   14F4           00998     BSF Select, RS
+0287   3044           00999     MOVLW 'D'
+0288   2???           01000     CALL send
+0289   3069           01001     MOVLW 'i'
+028A   2???           01002     CALL send
+028B   3076           01003     MOVLW 'v'
+028C   2???           01004     CALL send
+028D   3069           01005     MOVLW 'i'
+028E   2???           01006     CALL send
+028F   3064           01007     MOVLW 'd'
+0290   2???           01008     CALL send
+0291   3065           01009     MOVLW 'e'
+0292   2???           01010     CALL send
+0293   306E           01011     MOVLW 'n'
+0294   2???           01012     CALL send
+0295   3064           01013     MOVLW 'd'
+0296   2???           01014     CALL send
+0297   303A           01015     MOVLW ':'
+0298   2???           01016     CALL send
+0299   0008           01017     RETURN
+                      01018 
+029A                  01019 print_divisor_msg:
+029A   14F4           01020     BSF Select, RS
+029B   3044           01021     MOVLW 'D'
+029C   2???           01022     CALL send
+029D   3069           01023     MOVLW 'i'
+029E   2???           01024     CALL send
+029F   3076           01025     MOVLW 'v'
+02A0   2???           01026     CALL send
+02A1   3069           01027     MOVLW 'i'
+02A2   2???           01028     CALL send
+02A3   3073           01029     MOVLW 's'
+02A4   2???           01030     CALL send
+02A5   306F           01031     MOVLW 'o'
+02A6   2???           01032     CALL send
+02A7   3072           01033     MOVLW 'r'
+02A8   2???           01034     CALL send
+02A9   303A           01035     MOVLW ':'
+02AA   2???           01036     CALL send
+02AB   0008           01037     RETURN
+                      01038 
+02AC                  01039 print_result_msg:
+02AC   14F4           01040     BSF Select, RS
+02AD   3052           01041     MOVLW 'R'
+02AE   2???           01042     CALL send
+02AF   3065           01043     MOVLW 'e'
+02B0   2???           01044     CALL send
+02B1   3073           01045     MOVLW 's'
+02B2   2???           01046     CALL send
+02B3   3075           01047     MOVLW 'u'
+02B4   2???           01048     CALL send
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 21
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02B5   306C           01049     MOVLW 'l'
+02B6   2???           01050     CALL send
+02B7   3074           01051     MOVLW 't'
+02B8   2???           01052     CALL send
+02B9   303A           01053     MOVLW ':'
+02BA   2???           01054     CALL send
+02BB   0008           01055     RETURN
+                      01056 
+02BC                  01057 print_error_msg:
+02BC   14F4           01058     BSF Select, RS
+02BD   3045           01059     MOVLW 'E'
+02BE   2???           01060     CALL send
+02BF   3052           01061     MOVLW 'R'
+02C0   2???           01062     CALL send
+02C1   3052           01063     MOVLW 'R'
+02C2   2???           01064     CALL send
+02C3   304F           01065     MOVLW 'O'
+02C4   2???           01066     CALL send
+02C5   3052           01067     MOVLW 'R'
+02C6   2???           01068     CALL send
+02C7   303A           01069     MOVLW ':'
+02C8   2???           01070     CALL send
+02C9   3020           01071     MOVLW ' '
+02CA   2???           01072     CALL send
+02CB   3044           01073     MOVLW 'D'
+02CC   2???           01074     CALL send
+02CD   3049           01075     MOVLW 'I'
+02CE   2???           01076     CALL send
+02CF   3056           01077     MOVLW 'V'
+02D0   2???           01078     CALL send
+02D1   302F           01079     MOVLW '/'
+02D2   2???           01080     CALL send
+02D3   3030           01081     MOVLW '0'
+02D4   2???           01082     CALL send
+02D5   0008           01083     RETURN
+                      01084 
+                      01085 ; ============= DELAY ROUTINES =============
+02D6                  01086 delay_2s:
+02D6   30FA           01087     MOVLW D'250'
+02D7   2???           01088     CALL xms
+02D8   30FA           01089     MOVLW D'250'
+02D9   2???           01090     CALL xms
+02DA   30FA           01091     MOVLW D'250'
+02DB   2???           01092     CALL xms
+02DC   30FA           01093     MOVLW D'250'
+02DD   2???           01094     CALL xms
+02DE   30FA           01095     MOVLW D'250'
+02DF   2???           01096     CALL xms
+02E0   30FA           01097     MOVLW D'250'
+02E1   2???           01098     CALL xms
+02E2   30FA           01099     MOVLW D'250'
+02E3   2???           01100     CALL xms
+02E4   30FA           01101     MOVLW D'250'
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 22
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+02E5   2???           01102     CALL xms
+02E6   0008           01103     RETURN
+                      01104 
+02E7                  01105 delay_3s:
+02E7   2???           01106     CALL delay_2s
+02E8   30FA           01107     MOVLW D'250'
+02E9   2???           01108     CALL xms
+02EA   30FA           01109     MOVLW D'250'
+02EB   2???           01110     CALL xms
+02EC   30FA           01111     MOVLW D'250'
+02ED   2???           01112     CALL xms
+02EE   30FA           01113     MOVLW D'250'
+02EF   2???           01114     CALL xms
+02F0   0008           01115     RETURN
+                      01116 
+                      01117     INCLUDE "LCDIS.INC"
+                      00001 ;--------------------------------------------------------------
+                      00002 ;       LCDIS.INC               MPB     19-12-05
+                      00003 ;
+                      00004 ;       Include file to operate 16x2 LCD display
+                      00005 ;       Uses GPR 70 - 75
+                      00006 ;       
+                      00007 ;       Final version
+                      00008 ;--------------------------------------------------------------
+                      00009 
+  00000070            00010 Timer1  EQU     70              ; 1ms count register
+  00000071            00011 TimerX  EQU     71              ; Xms count register
+  00000072            00012 Var     EQU     72              ; Output variable
+  00000073            00013 Point   EQU     73              ; Program table pointer
+  00000074            00014 Select  EQU     74              ; Used to set or clear RS bit
+  00000075            00015 OutCod  EQU     75              ; Temp store for output code
+                      00016 
+  00000001            00017 RS      EQU     1               ; Register select output bit
+  00000002            00018 E       EQU     2               ; Enable display input
+                      00019 
+                      00020 
+                      00021 ;--------------------------------------------------------------
+                      00022 ;       1ms delay with 1us cycle time (1000 cycles)
+                      00023 ;--------------------------------------------------------------
+02F1   30F9           00024 onems   MOVLW   D'249'          ; Count for 1ms delay 
+02F2   00F0           00025                 MOVWF   Timer1          ; Load count    2 + (1 + 1 + 2) * 248 + 1 + 2 + 2
+02F3   0000           00026 loop1   NOP                     ; Pad for 4 cycle loop
+Message[305]: Using default destination of 1 (file).
+02F4   0BF0           00027                 DECFSZ  Timer1          ; Count
+02F5   2???           00028                 GOTO    loop1           ; until Z
+02F6   0008           00029                 RETURN                  ; and finish
+                      00030 
+                      00031 ;--------------------------------------------------------------
+                      00032 ;       Delay Xms
+                      00033 ;       Receives count in W, uses Onems
+                      00034 ;--------------------------------------------------------------
+02F7   00F1           00035 xms             MOVWF   TimerX          ; Count for X ms
+02F8   2???           00036 loopX   CALL    onems           ; Delay 1ms
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 23
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Message[305]: Using default destination of 1 (file).
+02F9   0BF1           00037                 DECFSZ  TimerX          ; Repeat X times 
+02FA   2???           00038                 GOTO    loopX           ; until Z
+02FB   0008           00039                 RETURN                  ; and finish
+                      00040 
+                      00041 ;--------------------------------------------------------------
+                      00042 ;       Generate data/command clock siganl E
+                      00043 ;--------------------------------------------------------------
+02FC   1508           00044 pulseE  BSF     PORTD,E         ; Set E high
+02FD   2???           00045         CALL    onems           ; Delay 1ms
+02FE   1108           00046         BCF     PORTD,E         ; Reset E low
+02FF   2???           00047         CALL    onems           ; Delay 1ms
+0300   0008           00048         RETURN                  ; done
+                      00049 
+                      00050 ;--------------------------------------------------------------
+                      00051 ;       Send a command byte in two nibbles from RB4 - RB7
+                      00052 ;       Receives command in W, uses PulseE and Onems
+                      00053 ;--------------------------------------------------------------
+0301   00F5           00054 send    MOVWF   OutCod          ; Store output code
+0302   39F0           00055         ANDLW   0F0             ; Clear low nybble
+0303   0088           00056         MOVWF   PORTD           ; Output high nybble
+0304   18F4           00057         BTFSC   Select,RS       ; Test RS bit
+0305   1488           00058         BSF     PORTD,RS        ; and set for data
+0306   2???           00059         CALL    pulseE          ; and clock display register
+0307   2???           00060         CALL    onems           ; wait 1ms for display
+                      00061 
+Message[305]: Using default destination of 1 (file).
+0308   0EF5           00062         SWAPF   OutCod          ; Swap low and high nybbles 
+0309   0875           00063         MOVF    OutCod,W        ; Retrieve output code
+030A   39F0           00064         ANDLW   0F0             ; Clear low nybble
+030B   0088           00065         MOVWF   PORTD           ; Output low nybble
+030C   18F4           00066         BTFSC   Select,RS       ; Test RS bit
+030D   1488           00067         BSF     PORTD,RS        ; and set for data
+030E   2???           00068         CALL    pulseE          ; and clock display register
+030F   2???           00069         CALL    onems           ; wait 1ms for display
+0310   0008           00070         RETURN                  ; done
+                      00071 
+                      00072 ;--------------------------------------------------------------
+                      00073 ;       Initialise the display
+                      00074 ;       Uses Send
+                      00075 ;--------------------------------------------------------------
+0311   3064           00076 inid    MOVLW   D'100'          ; Load count for 100ms delay
+0312   2???           00077         CALL    xms             ; and wait for display start
+0313   30F0           00078         MOVLW   0F0             ; Mask for select code
+0314   00F4           00079         MOVWF   Select          ; High nybble not masked
+                      00080 
+0315   3030           00081         MOVLW   0x30            ; Load initial nibble
+0316   0088           00082         MOVWF   PORTD           ; and output it to display
+0317   2???           00083         CALL    pulseE          ; Latch initial code
+0318   3005           00084         MOVLW   D'5'            ; Set delay 5ms
+0319   2???           00085         CALL    xms             ; and wait
+031A   2???           00086         CALL    pulseE          ; Latch initial code again
+031B   2???           00087         CALL    onems           ; Wait 1ms
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 24
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+031C   2???           00088         CALL    pulseE          ; Latch initial code again
+031D   1208           00089         BCF     PORTD,4         ; Set 4-bit mode
+031E   2???           00090         CALL    pulseE          ; Latch it
+                      00091         
+031F   3028           00092         MOVLW   0x28            ; Set 4-bit mode, 2 lines
+0320   2???           00093         CALL    send            ; and send code
+0321   3008           00094         MOVLW   0x08            ; Switch off display
+0322   2???           00095         CALL    send            ; and send code
+0323   3001           00096         MOVLW   0x01            ; Code to clear display
+0324   2???           00097         CALL    send            ; and send code
+0325   3006           00098         MOVLW   0x06            ; Enable cursor auto inc  
+0326   2???           00099         CALL    send            ; and send code
+0327   3080           00100         MOVLW   0x80            ; Zero display address
+0328   2???           00101         CALL    send            ; and send code
+0329   300C           00102         MOVLW   0x0C            ; Turn on display  
+032A   2???           00103         CALL    send            ; and send code
+                      00104 
+032B   0008           00105         RETURN                  ; Done
+                      00106 
+                      00107 ;--------------------------------------------------------------
+3731                  01118     END
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+A_Digit1                          00000024
+A_Digit10                         0000002D
+A_Digit11                         0000002E
+A_Digit12                         0000002F
+A_Digit2                          00000025
+A_Digit3                          00000026
+A_Digit4                          00000027
+A_Digit5                          00000028
+A_Digit6                          00000029
+A_Digit7                          0000002A
+A_Digit8                          0000002B
+A_Digit9                          0000002C
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+B_Digit1                          00000030
+B_Digit10                         00000039
+B_Digit11                         0000003A
+B_Digit12                         0000003B
+B_Digit2                          00000031
+B_Digit3                          00000032
+B_Digit4                          00000033
+B_Digit5                          00000034
+B_Digit6                          00000035
+B_Digit7                          00000036
+B_Digit8                          00000037
+B_Digit9                          00000038
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1                             00000015
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2                             0000001B
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CIS                               00000003
+CKE                               00000006
+CKP                               00000004
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             0000009C
+CMIE                              00000006
+CMIF                              00000006
+CREN                              00000004
+CSRC                              00000007
+CVR0                              00000000
+CVR1                              00000001
+CVR2                              00000002
+CVR3                              00000003
+CVRCON                            0000009D
+CVREN                             00000007
+CVROE                             00000006
+CVRR                              00000005
+CompareFlag                       0000005D
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+D_A                               00000005
+D_NOT_A                           00000005
+DelayCt                           00000021
+DivByZero                         0000005C
+E                                 00000002
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+FractionStep                      0000005E
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+OutCod                            00000075
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+Point                             00000073
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+RS                                00000001
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_NOT_W                           00000002
+R_W                               00000002
+Result1                           00000050
+Result10                          00000059
+Result11                          0000005A
+Result12                          0000005B
+Result2                           00000051
+Result3                           00000052
+Result4                           00000053
+Result5                           00000054
+Result6                           00000055
+Result7                           00000056
+Result8                           00000057
+Result9                           00000058
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+STATUS                            00000003
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SYNC                              00000004
+Select                            00000074
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR1                              0000000E
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000087
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000088
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+Temp                              00000020
+Timer1                            00000070
+TimerX                            00000071
+UA                                00000001
+Var                               00000072
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Work_A1                           00000040
+Work_A10                          00000049
+Work_A11                          0000004A
+Work_A12                          0000004B
+Work_A2                           00000041
+Work_A3                           00000042
+Work_A4                           00000043
+Work_A5                           00000044
+Work_A6                           00000045
+Work_A7                           00000046
+Work_A8                           00000047
+Work_A9                           00000048
+Z                                 00000002
+_.org_0_01EB                      000001EB
+_BODEN_OFF                        00003FBF
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 32
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_BODEN_ON                         00003FFF
+_BOREN_OFF                        00003FBF
+_BOREN_ON                         00003FFF
+_CONFIG                           00002007
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00001FFF
+_CP_OFF                           00003FFF
+_CP_ON                            00001FFF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_DEVID1                           00002006
+_FOSC_EXTRC                       00003FFF
+_FOSC_HS                          00003FFE
+_FOSC_LP                          00003FFC
+_FOSC_XT                          00003FFD
+_HS_OSC                           00003FFE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_1FOURTH                      00003BFF
+_WRT_256                          00003DFF
+_WRT_HALF                         000039FF
+_WRT_OFF                          00003FFF
+_XT_OSC                           00003FFD
+__16F877A                         00000001
+__DEBUG                           1
+borrow_from_left10                00000166
+borrow_from_left11                0000015D
+borrow_from_left2                 000001AE
+borrow_from_left3                 000001A5
+borrow_from_left4                 0000019C
+borrow_from_left5                 00000193
+borrow_from_left6                 0000018A
+borrow_from_left7                 00000181
+borrow_from_left8                 00000178
+borrow_from_left9                 0000016F
+check_comparison_result           0000010A
+check_division_by_zero            000000A5
+clear_result                      000000B5
+compare_work_with_divisor         000000DB
+continue_sub1                     0000015A
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 33
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+continue_sub10                    0000011B
+continue_sub11                    00000114
+continue_sub2                     00000153
+continue_sub3                     0000014C
+continue_sub4                     00000145
+continue_sub5                     0000013E
+continue_sub6                     00000137
+continue_sub7                     00000130
+continue_sub8                     00000129
+continue_sub9                     00000122
+copy_dividend_to_work_area        000000C2
+dec_10                            0000016D
+dec_11                            00000164
+dec_2                             000001B5
+dec_3                             000001AC
+dec_4                             000001A3
+dec_5                             0000019A
+dec_6                             00000191
+dec_7                             00000188
+dec_8                             0000017F
+dec_9                             00000176
+delay_2s                          000002D6
+delay_3s                          000002E7
+display_dividend                  0000002E
+display_divisor                   00000037
+display_final_result              000001D7
+display_number_A_decimal          000001EC
+display_number_B_decimal          00000217
+display_result_decimal            00000242
+end_program                       000001EB
+fractional_digit_loop             00000056
+fractional_division               0000004F
+fractional_loop                   00000050
+increment_result_integer          000001B7
+inid                              00000311
+integer_division                  00000048
+integer_loop                      00000049
+load_test_numbers                 00000011
+loop1                             000002F3
+loopX                             000002F8
+onems                             000002F1
+perform_long_division             00000040
+print_dividend_msg                00000286
+print_division_msg                0000026A
+print_divisor_msg                 0000029A
+print_error_msg                   000002BC
+print_result_msg                  000002AC
+pulseE                            000002FC
+send                              00000301
+shift_remainder_left_one_positio  00000062
+show_division_error               000001E4
+store_frac_0                      00000093
+store_frac_1                      00000096
+MPASM  5.50                         SLAVE.ASM   7-6-2025  23:00:01         PAGE 34
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+store_frac_2                      00000099
+store_frac_3                      0000009C
+store_frac_4                      0000009F
+store_frac_5                      000000A2
+store_fractional_digit            0000005F
+store_fractional_result           0000007A
+subtract_b_from_work              0000010D
+xms                               000002F7
+
+Errors   :     0
+Warnings :     1 reported,     0 suppressed
+Messages :     5 reported,     0 suppressed
+
+
